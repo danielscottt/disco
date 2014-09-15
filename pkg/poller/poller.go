@@ -12,7 +12,7 @@ import (
 	"github.com/danielscottt/disco/pkg/dockerclient"
 )
 
-func poll(nodeId string) {
+func poll(nodeId, dockerPath string) {
 
 	dataDir := os.Getenv("DISCO_DATA_PATH")
 	if dataDir == "" {
@@ -26,7 +26,7 @@ func poll(nodeId string) {
 	}
 	lMap := mapList(ls)
 
-	cMap, err := getContainers()
+	cMap, err := getContainers(dockerPath)
 	if err != nil {
 		log.Println(err)
 		return
@@ -87,11 +87,11 @@ func marshalContainer(c dockerclient.Container) ([]byte, error) {
 	return cJson, nil
 }
 
-func getContainers() (*map[string]dockerclient.Container, error) {
+func getContainers(dockerPath string) (*map[string]dockerclient.Container, error) {
 
 	cMap := make(map[string]dockerclient.Container)
 
-	client, err := dockerclient.NewClient(os.Getenv("DOCKER_API_PATH"))
+	client, err := dockerclient.NewClient(dockerPath)
 	if err != nil {
 		log.Println(err)
 		return &cMap, nil
@@ -120,9 +120,30 @@ func mapList(ls []os.FileInfo) *map[string]os.FileInfo {
 	}
 	return &lMap
 }
-func Start(d time.Duration, nodeId string) {
+func Start(nodeId string) {
+
+	var dockerPath string
+	if os.Getenv("DOCKER_API_PATH") != "" {
+		dockerPath = os.Getenv("DOCKER_API_PATH")
+	} else {
+		log.Fatalf("Docker api path cannot be blank. Cannot start")
+	}
+
+	var dur string
+	if os.Getenv("DISCO_LOOP_TIME") != "" {
+		dur = os.Getenv("DISCO_LOOP_TIME")
+	} else {
+		dur = "2s"
+	}
+	duration, err := time.ParseDuration(dur)
+	if err != nil {
+		log.Fatalf("Invalid Loop Time given")
+	}
+
+	log.Println("START Poller:", dur, "loop time")
+
 	for {
-		poll(nodeId)
-		time.Sleep(d)
+		poll(nodeId, dockerPath)
+		time.Sleep(duration)
 	}
 }

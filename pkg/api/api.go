@@ -1,53 +1,127 @@
 package discoapi
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
 	"log"
 	"net"
+	"os"
 )
 
-var nodeId string
+type DiscoAPI struct {
+	NodeId     string
+	SocketPath string
+	DataPath   string
 
-func StartListener(id string) {
+	listener   net.Listener
+	connection net.Conn
+}
 
-	nodeId = id
+func NewDiscoAPI(id string) (*DiscoAPI, error) {
 
-	l, err := net.Listen("unix", "/var/run/disco.sock")
-	if err != nil {
-		log.Fatalf("Error opening Disco's socket", err)
-		return
+	var (
+		d                    *DiscoAPI
+		socketPath, dataPath string
+	)
+
+	if os.Getenv("DISCO_SOCKET") != "" {
+		socketPath = os.Getenv("DISCO_SOCKET")
+	} else {
+		return d, errors.New("Disco socket path not set. Cannot start.")
 	}
-	defer l.Close()
+	if os.Getenv("DISCO_DATA_PATH") != "" {
+		dataPath = os.Getenv("DISCO_DATA_PATH")
+	} else {
+		return d, errors.New("Disco data path not set. Cannot start.")
+	}
+
+	log.Print("Disco socket Path: [", socketPath, "]")
+	log.Print("Disco data Path: [", dataPath, "]")
+
+	l, err := net.Listen("unix", socketPath)
+	if err != nil {
+		return d, err
+	}
+
+	d = &DiscoAPI{
+		listener:   l,
+		NodeId:     id,
+		SocketPath: socketPath,
+		DataPath:   dataPath,
+	}
+
+	return d, nil
+}
+
+func (d *DiscoAPI) Start() {
+
+	var err error
+
 	for {
-		conn, err := l.Accept()
+		d.connection, err = d.listener.Accept()
 		if err != nil {
 			log.Println("Error reading socket")
 			continue
 		}
-		go handleSocketRequest(conn)
+		go d.handleSocketRequest()
 	}
 }
 
-func handleSocketRequest(c net.Conn) {
-	buf := make([]byte, 512)
-	e, err := c.Read(buf)
+func (d *DiscoAPI) Stop() {
+	if d.connection != nil {
+		d.connection.Close()
+	}
+	d.listener.Close()
+}
+
+func (d *DiscoAPI) handleSocketRequest() {
+
+	defer d.connection.Close()
+
+	buf := make([]byte, 1024)
+	e, err := d.connection.Read(buf)
 	if err != nil {
 		return
 	}
 	req := buf[0:e]
-	routeRequest(c, string(req))
+
+	splitPayload := bytes.SplitN(req, []byte("\n"), 2)
+
+	var path, payload []byte
+	path = splitPayload[0]
+	if len(splitPayload) > 2 {
+		payload = splitPayload[1]
+	}
+
+	d.routeRequest(path, payload)
 }
 
-func routeRequest(c net.Conn, req string) {
-	switch req {
-	case "/disco/local/nodeId":
-		reply(c, []byte(nodeId))
+func (d *DiscoAPI) routeRequest(path, payload []byte) {
+
+	p := string(path)
+	log.Print("Received request [", p, "]")
+
+	switch p {
+	case "/disco/local/node_id":
+		d.reply([]byte(d.NodeId))
+	case "/disco/api/add_container":
+		addContainer(d, payload)
+	default:
+		log.Print("Request path [", p, "] not found")
+		err := fmt.Sprintf("Error: Invalid request path [%s]", p)
+		d.reply([]byte(err))
 	}
 }
 
-func reply(c net.Conn, response []byte) {
-	_, err := c.Write(response)
+func (d *DiscoAPI) reply(response []byte) {
+	_, err := d.connection.Write(response)
 	if err != nil {
 		log.Println("Error in replying to request")
 		return
 	}
+}
+
+func addContainer(d *DiscoAPI, payload []byte) {
+	log.Println((*d).NodeId, "Payload:", string(payload))
 }

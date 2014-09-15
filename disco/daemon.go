@@ -3,11 +3,12 @@ package main
 import (
 	"log"
 	"os"
-	"time"
+	"os/signal"
+	"syscall"
 
 	"code.google.com/p/go-uuid/uuid"
 
-	api "github.com/danielscottt/disco/pkg/api"
+	"github.com/danielscottt/disco/pkg/api"
 	"github.com/danielscottt/disco/pkg/poller"
 )
 
@@ -15,23 +16,24 @@ func main() {
 
 	nodeId := uuid.New()
 
-	var dur string
-	if os.Getenv("DISCO_LOOP_TIME") != "" {
-		dur = os.Getenv("DISCO_LOOP_TIME")
-	} else {
-		dur = "2s"
-	}
-	duration, err := time.ParseDuration(dur)
+	api, err := discoapi.NewDiscoAPI(nodeId)
 	if err != nil {
-		log.Fatalf("Invalid Loop Time given")
+		log.Fatal("FATAL: ", err)
 	}
 
-	log.Println("Docker API Path:", os.Getenv("DOCKER_API_PATH"))
-	log.Println("Data Path:", os.Getenv("DISCO_DATA_PATH"))
-	log.Println("START:", dur, "loop time")
+	// Close socket on SIGKILL && SIGTERM
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, os.Interrupt, os.Kill, syscall.SIGTERM)
+	go func(c chan os.Signal) {
+		sig := <-c
+		log.Printf("%s Signal receieved: Exiting Disco Daemon", sig)
+		api.Stop()
+		os.Exit(0)
+	}(sigc)
 
-	go api.StartListener(nodeId)
+	go api.Start()
+	defer api.Stop()
 
-	poller.Start(duration, nodeId)
+	poller.Start(nodeId)
 
 }

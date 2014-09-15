@@ -40,11 +40,15 @@ func (c *Client) do(path string) ([]byte, error) {
 }
 
 func (c *Client) GetNodeId() (string, error) {
-	id, err := c.do("/disco/local/nodeId")
+	id, err := c.do("/disco/local/node_dfsfid")
 	if err != nil {
 		return string(id), err
 	}
 	return string(id), nil
+}
+
+func (c *Client) RegisterContainer() {
+	c.do("/disco/api/add_container\nhello world")
 }
 
 type RegisteredContainer struct {
