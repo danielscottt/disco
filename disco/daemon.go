@@ -16,7 +16,21 @@ func main() {
 
 	nodeId := uuid.New()
 
-	api, err := discoapi.NewDiscoAPI(nodeId)
+	var discoSocketPath, discoDataPath string
+
+	if os.Getenv("DISCO_SOCKET") != "" {
+		discoSocketPath = os.Getenv("DISCO_SOCKET")
+	} else {
+		log.Fatalf("Disco socket path not set. Cannot start.")
+	}
+
+	if os.Getenv("DISCO_DATA_PATH") != "" {
+		discoDataPath = os.Getenv("DISCO_DATA_PATH")
+	} else {
+		log.Fatalf("Disco data path not set. Cannot start.")
+	}
+
+	api, err := discoapi.NewDiscoAPI(nodeId, discoDataPath, discoSocketPath)
 	if err != nil {
 		log.Fatal("FATAL: ", err)
 	}
@@ -34,6 +48,6 @@ func main() {
 	go api.Start()
 	defer api.Stop()
 
-	poller.Start(nodeId)
+	poller.Start(nodeId, discoDataPath, discoSocketPath)
 
 }

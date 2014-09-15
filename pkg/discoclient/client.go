@@ -2,6 +2,8 @@ package discoclient
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net"
 	"os"
 
@@ -18,7 +20,7 @@ func NewClient(path string) *Client {
 	}
 }
 
-func (c *Client) do(path string) ([]byte, error) {
+func (c *Client) do(payload string) ([]byte, error) {
 
 	var buff []byte
 
@@ -27,7 +29,7 @@ func (c *Client) do(path string) ([]byte, error) {
 		return buff, err
 	}
 	defer conn.Close()
-	conn.Write([]byte(path))
+	conn.Write([]byte(payload))
 	if err != nil {
 		return buff, err
 	}
@@ -40,26 +42,63 @@ func (c *Client) do(path string) ([]byte, error) {
 }
 
 func (c *Client) GetNodeId() (string, error) {
-	id, err := c.do("/disco/local/node_dfsfid")
+	id, err := c.do("/disco/local/node_id")
 	if err != nil {
 		return string(id), err
 	}
 	return string(id), nil
 }
 
-func (c *Client) RegisterContainer() {
-	c.do("/disco/api/add_container\nhello world")
+func (c *Client) RegisterContainer(ct *Container) ([]byte, error) {
+
+	id, err := c.GetNodeId()
+	if err != nil {
+		return []byte(id), err
+	}
+
+	cJson, err := ct.Marshal()
+	if err != nil {
+		return cJson, err
+	}
+
+	reply, err := c.do(fmt.Sprintf("/disco/api/add_container\n%s", cJson))
+	if err != nil {
+		return reply, err
+	}
+	if string(reply) != "success" {
+		return reply, errors.New(string(reply))
+	}
+
+	return reply, nil
 }
 
-type RegisteredContainer struct {
+func (c *Client) RemoveContainer(conId string) ([]byte, error) {
+
+	id, err := c.GetNodeId()
+	if err != nil {
+		return []byte(id), err
+	}
+
+	reply, err := c.do(fmt.Sprintf("/disco/api/remove_container\n%s", conId))
+	if err != nil {
+		return reply, err
+	}
+	if string(reply) != "success" {
+		return reply, errors.New(string(reply))
+	}
+
+	return reply, nil
+}
+
+type Container struct {
 	Host  string
 	Ports []dockerclient.Port
 	Id    string
 	Names []string
 }
 
-func NewRegisteredContainer(names []string, id string, ports []dockerclient.Port) *RegisteredContainer {
-	c := &RegisteredContainer{
+func NewContainer(names []string, id string, ports []dockerclient.Port) *Container {
+	c := &Container{
 		Names: names,
 		Id:    id,
 		Ports: ports,
@@ -68,8 +107,8 @@ func NewRegisteredContainer(names []string, id string, ports []dockerclient.Port
 	return c
 }
 
-func (r *RegisteredContainer) Marshal() ([]byte, error) {
-	cJson, err := json.Marshal(r)
+func (c *Container) Marshal() ([]byte, error) {
+	cJson, err := json.Marshal(c)
 	if err != nil {
 		return cJson, err
 	}

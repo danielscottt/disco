@@ -2,11 +2,14 @@ package discoapi
 
 import (
 	"bytes"
-	"errors"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
+
+	"github.com/danielscottt/disco/pkg/discoclient"
 )
 
 type DiscoAPI struct {
@@ -18,23 +21,9 @@ type DiscoAPI struct {
 	connection net.Conn
 }
 
-func NewDiscoAPI(id string) (*DiscoAPI, error) {
+func NewDiscoAPI(id, dataPath, socketPath string) (*DiscoAPI, error) {
 
-	var (
-		d                    *DiscoAPI
-		socketPath, dataPath string
-	)
-
-	if os.Getenv("DISCO_SOCKET") != "" {
-		socketPath = os.Getenv("DISCO_SOCKET")
-	} else {
-		return d, errors.New("Disco socket path not set. Cannot start.")
-	}
-	if os.Getenv("DISCO_DATA_PATH") != "" {
-		dataPath = os.Getenv("DISCO_DATA_PATH")
-	} else {
-		return d, errors.New("Disco data path not set. Cannot start.")
-	}
+	var d *DiscoAPI
 
 	log.Print("Disco socket Path: [", socketPath, "]")
 	log.Print("Disco data Path: [", dataPath, "]")
@@ -90,7 +79,7 @@ func (d *DiscoAPI) handleSocketRequest() {
 
 	var path, payload []byte
 	path = splitPayload[0]
-	if len(splitPayload) > 2 {
+	if len(splitPayload) >= 2 {
 		payload = splitPayload[1]
 	}
 
@@ -104,17 +93,19 @@ func (d *DiscoAPI) routeRequest(path, payload []byte) {
 
 	switch p {
 	case "/disco/local/node_id":
-		d.reply([]byte(d.NodeId))
+		d.Reply([]byte(d.NodeId))
 	case "/disco/api/add_container":
 		addContainer(d, payload)
+	case "/disco/api/remove_container":
+		removeContainer(d, payload)
 	default:
 		log.Print("Request path [", p, "] not found")
 		err := fmt.Sprintf("Error: Invalid request path [%s]", p)
-		d.reply([]byte(err))
+		d.Reply([]byte(err))
 	}
 }
 
-func (d *DiscoAPI) reply(response []byte) {
+func (d *DiscoAPI) Reply(response []byte) {
 	_, err := d.connection.Write(response)
 	if err != nil {
 		log.Println("Error in replying to request")
@@ -123,5 +114,20 @@ func (d *DiscoAPI) reply(response []byte) {
 }
 
 func addContainer(d *DiscoAPI, payload []byte) {
-	log.Println((*d).NodeId, "Payload:", string(payload))
+	var c discoclient.Container
+	err := json.Unmarshal(payload, &c)
+	if err != nil {
+		d.Reply([]byte("Cannot unmarshal container JSON"))
+		return
+	}
+	path := fmt.Sprintf("%s/%s:%s", d.DataPath, d.NodeId, c.Id)
+	ioutil.WriteFile(path, payload, 644)
+	d.Reply([]byte("success"))
+}
+
+func removeContainer(d *DiscoAPI, payload []byte) {
+	path := fmt.Sprintf("%s/%s:%s", d.DataPath, d.NodeId, string(payload))
+	fmt.Println(path)
+	os.Remove(path)
+	d.Reply([]byte("success"))
 }
