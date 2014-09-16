@@ -10,8 +10,6 @@ import (
 var link *commando.Command
 
 func linkContainers() {
-	//target := discoclient.GetContainer(link.Options["target"].Value)
-	//source := discoclient.GetContainer(link.Options["source"].Value)
 }
 
 func Parse() {
@@ -27,7 +25,8 @@ func Parse() {
 		Execute:     linkContainers,
 	}
 	link.AddOption("target", "The target container", true, "-t", "--target")
-	link.AddOption("container", "The container to start", true, "-c", "--container")
+	link.AddOption("source", "The source container [the one that is being created]", true, "-s", "--source")
+	link.AddOption("port", "The name and the port to map to linked container [in NAME:port format]", true, "-p", "--port")
 	disco.AddSubCommand(link)
 
 	nodeId := &commando.Command{

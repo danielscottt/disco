@@ -2,14 +2,11 @@ package discoapi
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
-
-	"github.com/danielscottt/disco/pkg/discoclient"
 )
 
 type DiscoAPI struct {
@@ -114,20 +111,16 @@ func (d *DiscoAPI) Reply(response []byte) {
 }
 
 func addContainer(d *DiscoAPI, payload []byte) {
-	var c discoclient.Container
-	err := json.Unmarshal(payload, &c)
-	if err != nil {
-		d.Reply([]byte("Cannot unmarshal container JSON"))
-		return
-	}
-	path := fmt.Sprintf("%s/%s:%s", d.DataPath, d.NodeId, c.Id)
-	ioutil.WriteFile(path, payload, 644)
+	splitPayload := bytes.SplitN(payload, []byte("\n"), 2)
+	id := splitPayload[0]
+	p := splitPayload[1]
+	path := fmt.Sprintf("%s/%s:%s", d.DataPath, d.NodeId, id)
+	ioutil.WriteFile(path, p, 644)
 	d.Reply([]byte("success"))
 }
 
 func removeContainer(d *DiscoAPI, payload []byte) {
 	path := fmt.Sprintf("%s/%s:%s", d.DataPath, d.NodeId, string(payload))
-	fmt.Println(path)
 	os.Remove(path)
 	d.Reply([]byte("success"))
 }

@@ -36,8 +36,7 @@ func poll(nodeId, dataPath, discoPath, dockerPath string) {
 
 		if _, present := (*lMap)[fmt.Sprintf("%s:%s", nodeId, c.Id)]; !present {
 			log.Print("New container [", c.Id, "] discovered")
-			cd := discoclient.NewContainer(c.Names, c.Id, c.Ports)
-			_, err := dClient.RegisterContainer(cd)
+			_, err := dClient.RegisterContainer(&c)
 			if err != nil {
 				log.Print("Error: ", err)
 				continue
@@ -57,7 +56,12 @@ func updateContainer(dClient *discoclient.Client, c *dockerclient.Container, fil
 		log.Println(err)
 		return
 	}
-	cd := discoclient.NewContainer(c.Names, c.Id, c.Ports)
+	cd := &discoclient.Container{
+		Names: (*c).Names,
+		Id:    (*c).Id,
+		Ports: (*c).Ports,
+	}
+	cd.Host, _ = os.Hostname()
 	cJson, err := cd.Marshal()
 	if err != nil {
 		log.Print(err)
@@ -67,7 +71,7 @@ func updateContainer(dClient *discoclient.Client, c *dockerclient.Container, fil
 	currentHash := md5.Sum(cJson)
 	if fileHash != currentHash {
 		log.Print("Container [", (*c).Id, "] exists but has been updated")
-		_, err := (*dClient).RegisterContainer(cd)
+		_, err := (*dClient).RegisterContainer(c)
 		if err != nil {
 			log.Print("Error: ", err)
 		}

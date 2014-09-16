@@ -49,19 +49,26 @@ func (c *Client) GetNodeId() (string, error) {
 	return string(id), nil
 }
 
-func (c *Client) RegisterContainer(ct *Container) ([]byte, error) {
+func (c *Client) RegisterContainer(con *dockerclient.Container) ([]byte, error) {
 
 	id, err := c.GetNodeId()
 	if err != nil {
 		return []byte(id), err
 	}
 
+	ct := &Container{
+		Names: (*con).Names,
+		Id:    (*con).Id,
+		Ports: (*con).Ports,
+	}
+	ct.Host, _ = os.Hostname()
+
 	cJson, err := ct.Marshal()
 	if err != nil {
 		return cJson, err
 	}
 
-	reply, err := c.do(fmt.Sprintf("/disco/api/add_container\n%s", cJson))
+	reply, err := c.do(fmt.Sprintf("/disco/api/add_container\n%s\n%s", ct.Id, cJson))
 	if err != nil {
 		return reply, err
 	}
@@ -95,16 +102,6 @@ type Container struct {
 	Ports []dockerclient.Port
 	Id    string
 	Names []string
-}
-
-func NewContainer(names []string, id string, ports []dockerclient.Port) *Container {
-	c := &Container{
-		Names: names,
-		Id:    id,
-		Ports: ports,
-	}
-	c.Host, _ = os.Hostname()
-	return c
 }
 
 func (c *Container) Marshal() ([]byte, error) {
