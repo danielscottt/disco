@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"regexp"
+	"strings"
 )
 
 type DiscoAPI struct {
@@ -88,13 +90,17 @@ func (d *DiscoAPI) routeRequest(path, payload []byte) {
 	p := string(path)
 	log.Print("Received request [", p, "]")
 
-	switch p {
-	case "/disco/local/node_id":
+	getCont := regexp.MustCompile("/disco/api/get_container")
+
+	switch {
+	case p == "/disco/local/node_id":
 		d.Reply([]byte(d.NodeId))
-	case "/disco/api/add_container":
+	case p == "/disco/api/add_container":
 		addContainer(d, payload)
-	case "/disco/api/remove_container":
+	case p == "/disco/api/remove_container":
 		removeContainer(d, payload)
+	case getCont.MatchString(p):
+		getContainer(d, p)
 	default:
 		log.Print("Request path [", p, "] not found")
 		err := fmt.Sprintf("Error: Invalid request path [%s]", p)
@@ -110,17 +116,27 @@ func (d *DiscoAPI) Reply(response []byte) {
 	}
 }
 
+func getContainer(d *DiscoAPI, p string) {
+	pathArr := strings.Split(p, "/")
+	id := pathArr[len(pathArr)-1]
+	data, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", d.DataPath, id))
+	if err != nil {
+		d.Reply([]byte(err.Error()))
+	}
+	d.Reply(data)
+}
+
 func addContainer(d *DiscoAPI, payload []byte) {
 	splitPayload := bytes.SplitN(payload, []byte("\n"), 2)
-	id := splitPayload[0]
+	name := splitPayload[0]
 	p := splitPayload[1]
-	path := fmt.Sprintf("%s/%s:%s", d.DataPath, d.NodeId, id)
+	path := fmt.Sprintf("%s/%s", d.DataPath, name)
 	ioutil.WriteFile(path, p, 644)
 	d.Reply([]byte("success"))
 }
 
 func removeContainer(d *DiscoAPI, payload []byte) {
-	path := fmt.Sprintf("%s/%s:%s", d.DataPath, d.NodeId, string(payload))
+	path := fmt.Sprintf("%s/%s", d.DataPath, string(payload))
 	os.Remove(path)
 	d.Reply([]byte("success"))
 }

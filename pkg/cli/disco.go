@@ -2,6 +2,7 @@ package discocli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/danielscottt/commando"
 	"github.com/danielscottt/disco/pkg/discoclient"
@@ -10,6 +11,16 @@ import (
 var link *commando.Command
 
 func linkContainers() {
+	c := discoclient.NewClient(os.Getenv("DISCO_SOCKET"))
+	target, err := c.GetContainer(link.Options["target"].Value.(string))
+	source, err := c.GetContainer(link.Options["source"].Value.(string))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	commando.PrintFields(false, 0, "NAME", "NODE ID")
+	commando.PrintFields(false, 0, (*target).Name, (*target).HostNode)
+	commando.PrintFields(false, 0, (*source).Name, (*source).HostNode)
 }
 
 func Parse() {

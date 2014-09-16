@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/danielscottt/disco/pkg/discoclient"
@@ -32,17 +31,18 @@ func poll(nodeId, dataPath, discoPath, dockerPath string) {
 
 	for _, c := range *cMap {
 
-		filePath := fmt.Sprintf("%s/%s:%s", dataPath, nodeId, c.Id)
+		name := c.Names[0][1:]
 
-		if _, present := (*lMap)[fmt.Sprintf("%s:%s", nodeId, c.Id)]; !present {
-			log.Print("New container [", c.Id, "] discovered")
-			_, err := dClient.RegisterContainer(&c)
-			if err != nil {
+		filePath := fmt.Sprintf("%s/%s", dataPath, name)
+
+		if _, present := (*lMap)[name]; !present {
+			log.Print("New container [", name, "] discovered")
+			if err := dClient.RegisterContainer(&c); err != nil {
 				log.Print("Error: ", err)
 				continue
 			}
 		} else {
-			updateContainer(dClient, &c, filePath)
+			updateContainer(dClient, &c, filePath, nodeId)
 		}
 
 	}
@@ -50,18 +50,18 @@ func poll(nodeId, dataPath, discoPath, dockerPath string) {
 	removeStaleContainers(lMap, cMap, dClient)
 }
 
-func updateContainer(dClient *discoclient.Client, c *dockerclient.Container, filePath string) {
+func updateContainer(dClient *discoclient.Client, c *dockerclient.Container, filePath, nodeId string) {
 	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 	cd := &discoclient.Container{
-		Names: (*c).Names,
-		Id:    (*c).Id,
-		Ports: (*c).Ports,
+		HostNode: nodeId,
+		Name:     (*c).Names[0][1:],
+		Id:       (*c).Id,
+		Ports:    (*c).Ports,
 	}
-	cd.Host, _ = os.Hostname()
 	cJson, err := cd.Marshal()
 	if err != nil {
 		log.Print(err)
@@ -70,9 +70,8 @@ func updateContainer(dClient *discoclient.Client, c *dockerclient.Container, fil
 	fileHash := md5.Sum(file)
 	currentHash := md5.Sum(cJson)
 	if fileHash != currentHash {
-		log.Print("Container [", (*c).Id, "] exists but has been updated")
-		_, err := (*dClient).RegisterContainer(c)
-		if err != nil {
+		log.Print("Container [", cd.Name, "] exists but has been updated")
+		if err := (*dClient).RegisterContainer(c); err != nil {
 			log.Print("Error: ", err)
 		}
 	}
@@ -80,10 +79,11 @@ func updateContainer(dClient *discoclient.Client, c *dockerclient.Container, fil
 
 func removeStaleContainers(lMap *map[string]os.FileInfo, cMap *map[string]dockerclient.Container, dClient *discoclient.Client) {
 	for _, l := range *lMap {
-		name := strings.Split(l.Name(), ":")[1]
-		if _, present := (*cMap)[name]; !present {
-			log.Print("Removing Container [", name, "]")
-			(*dClient).RemoveContainer(name)
+		if _, present := (*cMap)[l.Name()]; !present {
+			log.Print("Removing Container [", l.Name(), "]")
+			if err := (*dClient).RemoveContainer(l.Name()); err != nil {
+				log.Print("Error removing container [", l.Name(), "]")
+			}
 		}
 	}
 }
@@ -110,7 +110,7 @@ func getContainers(dockerPath string) (*map[string]dockerclient.Container, error
 
 func mapContainers(mapPointer *map[string]dockerclient.Container, cs []dockerclient.Container) {
 	for _, c := range cs {
-		(*mapPointer)[c.Id] = c
+		(*mapPointer)[c.Names[0][1:]] = c
 	}
 }
 

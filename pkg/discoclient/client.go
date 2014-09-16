@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/danielscottt/disco/pkg/dockerclient"
 )
@@ -49,59 +48,66 @@ func (c *Client) GetNodeId() (string, error) {
 	return string(id), nil
 }
 
-func (c *Client) RegisterContainer(con *dockerclient.Container) ([]byte, error) {
+func (c *Client) RegisterContainer(con *dockerclient.Container) error {
 
 	id, err := c.GetNodeId()
 	if err != nil {
-		return []byte(id), err
+		return err
 	}
 
 	ct := &Container{
-		Names: (*con).Names,
-		Id:    (*con).Id,
-		Ports: (*con).Ports,
+		HostNode: id,
+		Name:     (*con).Names[0][1:],
+		Id:       (*con).Id,
+		Ports:    (*con).Ports,
 	}
-	ct.Host, _ = os.Hostname()
 
 	cJson, err := ct.Marshal()
 	if err != nil {
-		return cJson, err
+		return err
 	}
 
-	reply, err := c.do(fmt.Sprintf("/disco/api/add_container\n%s\n%s", ct.Id, cJson))
+	reply, err := c.do(fmt.Sprintf("/disco/api/add_container\n%s\n%s", ct.Name, cJson))
 	if err != nil {
-		return reply, err
+		return err
 	}
 	if string(reply) != "success" {
-		return reply, errors.New(string(reply))
+		return errors.New(string(reply))
 	}
 
-	return reply, nil
+	return nil
 }
 
-func (c *Client) RemoveContainer(conId string) ([]byte, error) {
+func (c *Client) RemoveContainer(name string) error {
 
-	id, err := c.GetNodeId()
+	reply, err := c.do(fmt.Sprintf("/disco/api/remove_container\n%s", name))
 	if err != nil {
-		return []byte(id), err
-	}
-
-	reply, err := c.do(fmt.Sprintf("/disco/api/remove_container\n%s", conId))
-	if err != nil {
-		return reply, err
+		return err
 	}
 	if string(reply) != "success" {
-		return reply, errors.New(string(reply))
+		return errors.New(string(reply))
 	}
 
-	return reply, nil
+	return nil
+}
+
+func (c *Client) GetContainer(name string) (*Container, error) {
+	var con Container
+	reply, err := c.do(fmt.Sprintf("/disco/api/get_container/%s", name))
+	if err != nil {
+		return &con, err
+	}
+	if err := json.Unmarshal(reply, &con); err != nil {
+		return &con, err
+	}
+	return &con, nil
 }
 
 type Container struct {
-	Host  string
-	Ports []dockerclient.Port
-	Id    string
-	Names []string
+	Name     string
+	HostNode string
+	Ports    []dockerclient.Port
+	Id       string
 }
 
 func (c *Container) Marshal() ([]byte, error) {
