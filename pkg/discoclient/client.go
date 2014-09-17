@@ -103,11 +103,24 @@ func (c *Client) GetContainer(name string) (*Container, error) {
 	return &con, nil
 }
 
+func (c *Client) GetContainers() ([]Container, error) {
+	var cons []Container
+	reply, err := c.do("/disco/api/get_containers")
+	if err != nil {
+		return cons, err
+	}
+	if err := json.Unmarshal(reply, &cons); err != nil {
+		return cons, err
+	}
+	return cons, nil
+}
+
 type Container struct {
 	Name     string
 	HostNode string
 	Ports    []dockerclient.Port
 	Id       string
+	Links    []Link
 }
 
 func (c *Container) Marshal() ([]byte, error) {
@@ -116,4 +129,16 @@ func (c *Container) Marshal() ([]byte, error) {
 		return cJson, err
 	}
 	return cJson, nil
+}
+
+type Link struct {
+	Source  *Container
+	Target  *Container
+	PortMap map[string]Port
+}
+
+type Port struct {
+	Name    string
+	Private int
+	Public  int
 }

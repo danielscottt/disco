@@ -99,6 +99,8 @@ func (d *DiscoAPI) routeRequest(path, payload []byte) {
 		addContainer(d, payload)
 	case p == "/disco/api/remove_container":
 		removeContainer(d, payload)
+	case p == "/disco/api/get_containers":
+		getContainers(d)
 	case getCont.MatchString(p):
 		getContainer(d, p)
 	default:
@@ -116,14 +118,45 @@ func (d *DiscoAPI) Reply(response []byte) {
 	}
 }
 
-func getContainer(d *DiscoAPI, p string) {
-	pathArr := strings.Split(p, "/")
-	id := pathArr[len(pathArr)-1]
-	data, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", d.DataPath, id))
+func getContainers(d *DiscoAPI) {
+	response := []byte{'['}
+	ls, err := ioutil.ReadDir(d.DataPath)
 	if err != nil {
 		d.Reply([]byte(err.Error()))
+		return
+	}
+	for i, f := range ls {
+		data, err := scanContainerFile(d, f.Name())
+		if err != nil {
+			d.Reply([]byte(err.Error()))
+			return
+		}
+		response = append(response, data...)
+		if i != (len(ls) - 1) {
+			response = append(response, ',')
+		}
+	}
+	response = append(response, ']')
+	d.Reply(response)
+}
+
+func getContainer(d *DiscoAPI, p string) {
+	pathArr := strings.Split(p, "/")
+	name := pathArr[len(pathArr)-1]
+	data, err := scanContainerFile(d, name)
+	if err != nil {
+		d.Reply([]byte(err.Error()))
+		return
 	}
 	d.Reply(data)
+}
+
+func scanContainerFile(d *DiscoAPI, name string) ([]byte, error) {
+	data, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", d.DataPath, name))
+	if err != nil {
+		return data, err
+	}
+	return data, nil
 }
 
 func addContainer(d *DiscoAPI, payload []byte) {

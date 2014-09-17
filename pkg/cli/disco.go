@@ -2,28 +2,29 @@ package discocli
 
 import (
 	"fmt"
-	"os"
+	"strings"
 
 	"github.com/danielscottt/commando"
 	"github.com/danielscottt/disco/pkg/discoclient"
 )
 
-var link *commando.Command
+var (
+	link *commando.Command
+	c    *discoclient.Client
+)
 
 func linkContainers() {
-	c := discoclient.NewClient(os.Getenv("DISCO_SOCKET"))
-	target, err := c.GetContainer(link.Options["target"].Value.(string))
-	source, err := c.GetContainer(link.Options["source"].Value.(string))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	commando.PrintFields(false, 0, "NAME", "NODE ID")
-	commando.PrintFields(false, 0, (*target).Name, (*target).HostNode)
-	commando.PrintFields(false, 0, (*source).Name, (*source).HostNode)
+	//target, err := c.GetContainer(link.Options["target"].Value.(string))
+	//source, err := c.GetContainer(link.Options["source"].Value.(string))
+	//if err != nil {
+	//	fmt.Println(err)
+	//	return
+	//}
 }
 
 func Parse() {
+
+	c = discoclient.NewClient("/var/run/disco.sock")
 
 	disco := &commando.Command{
 		Name:        "disco",
@@ -44,7 +45,6 @@ func Parse() {
 		Name:        "node-id",
 		Description: "Get Disco Node Id",
 		Execute: func() {
-			c := discoclient.NewClient("/var/run/disco.sock")
 			id, err := c.GetNodeId()
 			if err != nil {
 				fmt.Println("Error:", err)
@@ -53,6 +53,27 @@ func Parse() {
 		},
 	}
 	disco.AddSubCommand(nodeId)
+
+	list := &commando.Command{
+		Name:        "list",
+		Description: "List Disco-managed Containers",
+		Execute: func() {
+			cons, err := c.GetContainers()
+			if err != nil {
+				fmt.Println(err)
+			}
+			commando.PrintFields(false, 0, "NAME", "HOST NODE", "DOCKER ID", "PORTS", "LINKS")
+			for _, con := range cons {
+				var portMap []string
+				for _, p := range con.Ports {
+					portMap = append(portMap, fmt.Sprintf("%d:%d", p.PrivatePort, p.PublicPort))
+				}
+				portString := strings.Join(portMap, ", ")
+				commando.PrintFields(false, 0, con.Name, con.HostNode, con.Id[:12], portString, "soon...")
+			}
+		},
+	}
+	disco.AddSubCommand(list)
 
 	disco.Parse()
 }
