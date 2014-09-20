@@ -9,7 +9,6 @@ import (
 	"code.google.com/p/go-uuid/uuid"
 
 	"github.com/danielscottt/disco/pkg/api"
-	"github.com/danielscottt/disco/pkg/poller"
 )
 
 func main() {
@@ -48,6 +47,6 @@ func main() {
 	go api.Start()
 	defer api.Stop()
 
-	poller.Start(nodeId, discoDataPath, discoSocketPath)
+	Start(nodeId, discoSocketPath)
 
 }

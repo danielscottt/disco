@@ -1,4 +1,4 @@
-package discocli
+package main
 
 import (
 	"fmt"

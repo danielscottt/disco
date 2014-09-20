@@ -122,7 +122,7 @@ func (d *DiscoAPI) Reply(response []byte) {
 
 func getContainers(d *DiscoAPI) {
 	response := []byte{'['}
-	ls, err := ioutil.ReadDir(d.DataPath)
+	ls, err := ioutil.ReadDir(d.DataPath + "/containers")
 	if err != nil {
 		d.Reply([]byte(err.Error()))
 		return
@@ -154,20 +154,20 @@ func getContainer(d *DiscoAPI, p string) {
 
 func addContainer(d *DiscoAPI, p string, payload []byte) {
 	name := getName(p)
-	path := fmt.Sprintf("%s/%s", d.DataPath, name)
+	path := fmt.Sprintf("%s/containers/%s", d.DataPath, name)
 	ioutil.WriteFile(path, payload, 644)
 	d.Reply([]byte("success"))
 }
 
 func removeContainer(d *DiscoAPI, p string) {
 	name := getName(p)
-	path := fmt.Sprintf("%s/%s", d.DataPath, name)
+	path := fmt.Sprintf("%s/containers/%s", d.DataPath, name)
 	os.Remove(path)
 	d.Reply([]byte("success"))
 }
 
 func scanContainerFile(d *DiscoAPI, name string) ([]byte, error) {
-	data, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", d.DataPath, name))
+	data, err := ioutil.ReadFile(fmt.Sprintf("%s/containers/%s", d.DataPath, name))
 	if err != nil {
 		return data, err
 	}
