@@ -91,16 +91,18 @@ func (d *DiscoAPI) routeRequest(path, payload []byte) {
 	log.Print("Received request [", p, "]")
 
 	getCont := regexp.MustCompile("/disco/api/get_container")
+	rmCont := regexp.MustCompile("/disco/api/remove_container")
+	addCont := regexp.MustCompile("/disco/api/add_container")
 
 	switch {
 	case p == "/disco/local/node_id":
 		d.Reply([]byte(d.NodeId))
-	case p == "/disco/api/add_container":
-		addContainer(d, payload)
-	case p == "/disco/api/remove_container":
-		removeContainer(d, payload)
 	case p == "/disco/api/get_containers":
 		getContainers(d)
+	case addCont.MatchString(p):
+		addContainer(d, p, payload)
+	case rmCont.MatchString(p):
+		removeContainer(d, p)
 	case getCont.MatchString(p):
 		getContainer(d, p)
 	default:
@@ -141,14 +143,27 @@ func getContainers(d *DiscoAPI) {
 }
 
 func getContainer(d *DiscoAPI, p string) {
-	pathArr := strings.Split(p, "/")
-	name := pathArr[len(pathArr)-1]
+	name := getName(p)
 	data, err := scanContainerFile(d, name)
 	if err != nil {
 		d.Reply([]byte(err.Error()))
 		return
 	}
 	d.Reply(data)
+}
+
+func addContainer(d *DiscoAPI, p string, payload []byte) {
+	name := getName(p)
+	path := fmt.Sprintf("%s/%s", d.DataPath, name)
+	ioutil.WriteFile(path, payload, 644)
+	d.Reply([]byte("success"))
+}
+
+func removeContainer(d *DiscoAPI, p string) {
+	name := getName(p)
+	path := fmt.Sprintf("%s/%s", d.DataPath, name)
+	os.Remove(path)
+	d.Reply([]byte("success"))
 }
 
 func scanContainerFile(d *DiscoAPI, name string) ([]byte, error) {
@@ -159,17 +174,7 @@ func scanContainerFile(d *DiscoAPI, name string) ([]byte, error) {
 	return data, nil
 }
 
-func addContainer(d *DiscoAPI, payload []byte) {
-	splitPayload := bytes.SplitN(payload, []byte("\n"), 2)
-	name := splitPayload[0]
-	p := splitPayload[1]
-	path := fmt.Sprintf("%s/%s", d.DataPath, name)
-	ioutil.WriteFile(path, p, 644)
-	d.Reply([]byte("success"))
-}
-
-func removeContainer(d *DiscoAPI, payload []byte) {
-	path := fmt.Sprintf("%s/%s", d.DataPath, string(payload))
-	os.Remove(path)
-	d.Reply([]byte("success"))
+func getName(path string) string {
+	pathArr := strings.Split(path, "/")
+	return pathArr[len(pathArr)-1]
 }

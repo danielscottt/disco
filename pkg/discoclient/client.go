@@ -67,7 +67,7 @@ func (c *Client) RegisterContainer(con *dockerclient.Container) error {
 		return err
 	}
 
-	reply, err := c.do(fmt.Sprintf("/disco/api/add_container\n%s\n%s", ct.Name, cJson))
+	reply, err := c.do(fmt.Sprintf("/disco/api/add_container/%s\n%s", ct.Name, cJson))
 	if err != nil {
 		return err
 	}
@@ -132,6 +132,7 @@ func (c *Container) Marshal() ([]byte, error) {
 }
 
 type Link struct {
+	Id      string
 	Source  *Container
 	Target  *Container
 	PortMap map[string]Port
