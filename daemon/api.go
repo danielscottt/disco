@@ -1,4 +1,4 @@
-package discoapi
+package main
 
 import (
 	"bytes"
@@ -98,7 +98,7 @@ func (d *DiscoAPI) routeRequest(path, payload []byte) {
 	case p == "/disco/local/node_id":
 		d.Reply([]byte(d.NodeId))
 	case p == "/disco/api/get_containers":
-		getContainers(d)
+		getContainersAPI(d)
 	case addCont.MatchString(p):
 		addContainer(d, p, payload)
 	case rmCont.MatchString(p):
@@ -120,7 +120,7 @@ func (d *DiscoAPI) Reply(response []byte) {
 	}
 }
 
-func getContainers(d *DiscoAPI) {
+func getContainersAPI(d *DiscoAPI) {
 	response := []byte{'['}
 	ls, err := ioutil.ReadDir(d.DataPath + "/containers")
 	if err != nil {

@@ -114,7 +114,7 @@ func mapList(ls []discoclient.Container) *map[string]discoclient.Container {
 	return &lMap
 }
 
-func Start(nodeId, discoPath string) {
+func StartPoller(nodeId, discoPath string) {
 
 	var dockerPath string
 	if os.Getenv("DOCKER_API_PATH") != "" {
