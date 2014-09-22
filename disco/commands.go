@@ -19,7 +19,7 @@ func linkContainers() {
 		if c.GetNodeId() != target.HostNode {
 			// handle disparate node
 		} else {
-			docker.CreateContainer()
+			d.CreateContainer()
 		}
 		// add link to disco
 		// create ENV array

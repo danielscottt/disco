@@ -6,18 +6,18 @@ import (
 
 	"github.com/danielscottt/commando"
 	"github.com/danielscottt/disco/pkg/discoclient"
-	"github.com/danielscottt/disco/pkg/dockerclient"
+	"github.com/fsouza/go-dockerclient"
 )
 
 var (
-	link   *commando.Command
-	c      *discoclient.Client
-	docker *dockerclient.Client
+	link *commando.Command
+	c    *discoclient.Client
+	d    *docker.Client
 )
 
 func main() {
 	c = discoclient.NewClient("/var/run/disco.sock")
-	docker = dockerclient.NewClient("/var/run/docker.sock")
+	d = docker.NewClient("/var/run/docker.sock")
 
 	disco := &commando.Command{
 		Name:        "disco",

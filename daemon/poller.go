@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/danielscottt/disco/pkg/discoclient"
-	"github.com/danielscottt/disco/pkg/dockerclient"
+	"github.com/fsouza/go-dockerclient"
 )
 
 func poll(nodeId, discoPath, dockerPath string) {
@@ -46,11 +46,11 @@ func poll(nodeId, discoPath, dockerPath string) {
 	removeStaleContainers(lMap, cMap, dClient)
 }
 
-func updateContainer(dClient *discoclient.Client, c *dockerclient.Container, dc discoclient.Container, nodeId string) {
+func updateContainer(dClient *discoclient.Client, c *docker.APIContainers, dc discoclient.Container, nodeId string) {
 	current := &discoclient.Container{
 		HostNode: nodeId,
 		Name:     (*c).Names[0][1:],
-		Id:       (*c).Id,
+		Id:       (*c).ID,
 		Ports:    (*c).Ports,
 	}
 	currentJson, err := current.Marshal()
@@ -69,7 +69,7 @@ func updateContainer(dClient *discoclient.Client, c *dockerclient.Container, dc 
 	}
 }
 
-func removeStaleContainers(lMap *map[string]discoclient.Container, cMap *map[string]dockerclient.Container, dClient *discoclient.Client) {
+func removeStaleContainers(lMap *map[string]discoclient.Container, cMap *map[string]docker.APIContainers, dClient *discoclient.Client) {
 	for _, l := range *lMap {
 		if _, present := (*cMap)[l.Name]; !present {
 			log.Print("Removing Container [", l.Name, "]")
@@ -80,17 +80,17 @@ func removeStaleContainers(lMap *map[string]discoclient.Container, cMap *map[str
 	}
 }
 
-func getContainers(dockerPath string) (*map[string]dockerclient.Container, error) {
+func getContainers(dockerPath string) (*map[string]docker.APIContainers, error) {
 
-	cMap := make(map[string]dockerclient.Container)
+	cMap := make(map[string]docker.APIContainers)
 
-	client, err := dockerclient.NewClient(dockerPath)
+	client, err := docker.NewClient(dockerPath)
 	if err != nil {
 		log.Println(err)
 		return &cMap, nil
 	}
 
-	cs, err := client.GetContainers()
+	cs, err := client.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
 		log.Println(err)
 		return &cMap, nil
@@ -100,7 +100,7 @@ func getContainers(dockerPath string) (*map[string]dockerclient.Container, error
 	return &cMap, nil
 }
 
-func mapContainers(mapPointer *map[string]dockerclient.Container, cs []dockerclient.Container) {
+func mapContainers(mapPointer *map[string]docker.APIContainers, cs []docker.APIContainers) {
 	for _, c := range cs {
 		(*mapPointer)[c.Names[0][1:]] = c
 	}

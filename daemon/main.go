@@ -48,7 +48,7 @@ func main() {
 	} else {
 		log.Fatalf("Disco data path not set. Cannot start.")
 	}
-	createTree(discDataPath)
+	createTree(discoDataPath)
 	registerNode(discoDataPath, nodeId)
 
 	api, err := NewDiscoAPI(nodeId, discoDataPath, discoSocketPath)

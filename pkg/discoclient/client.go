@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/danielscottt/disco/pkg/dockerclient"
+	"github.com/fsouza/go-dockerclient"
 )
 
 type Client struct {
@@ -48,7 +48,7 @@ func (c *Client) GetNodeId() (string, error) {
 	return string(id), nil
 }
 
-func (c *Client) RegisterContainer(con *dockerclient.Container) error {
+func (c *Client) RegisterContainer(con *docker.APIContainers) error {
 
 	id, err := c.GetNodeId()
 	if err != nil {
@@ -58,7 +58,7 @@ func (c *Client) RegisterContainer(con *dockerclient.Container) error {
 	ct := &Container{
 		HostNode: id,
 		Name:     (*con).Names[0][1:],
-		Id:       (*con).Id,
+		Id:       (*con).ID,
 		Ports:    (*con).Ports,
 	}
 
@@ -118,7 +118,7 @@ func (c *Client) GetContainers() ([]Container, error) {
 type Container struct {
 	Name     string
 	HostNode string
-	Ports    []dockerclient.Port
+	Ports    []docker.APIPort
 	Id       string
 	Links    []Link
 }
