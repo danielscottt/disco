@@ -14,21 +14,26 @@ import (
 	p "github.com/danielscottt/disco/pkg/persist"
 )
 
+const (
+	PREFIX = "/disco/data"
+)
+
 var (
+	nodeId  string
 	persist *p.Controller
 	config  *DaemonConfig
 )
 
 func createTree() {
 	for _, p := range []string{"nodes", "containers", "links"} {
-		_, err := persist.Create("/disco/data/"+p, "", 0)
+		_, err := persist.Create(PREFIX+"/"+p, "", true)
 		if err != nil {
 			log.Fatalf(err)
 		}
 	}
 }
 
-func registerNode(nodeId string) {
+func registerNode() {
 	addrs, _ := net.InterfaceAddrs()
 	addrsStrings := make([]string, 0)
 	for _, a := range addrs {
@@ -36,7 +41,7 @@ func registerNode(nodeId string) {
 			addrsStrings = append(addrsStrings, a.String())
 		}
 	}
-	_, err := persist.Create("/disco/data/nodes/"+nodeId, []byte(strings.Join(addrsStrings, ",")), 0)
+	_, err := persist.Create(PREFIX+"/nodes/"+nodeId, []byte(strings.Join(addrsStrings, ",")), false)
 	if err != nil {
 		log.Fatalf(err)
 	}
@@ -49,13 +54,14 @@ func ensureCleanShutdown() {
 		sig := <-c
 		log.Printf("%s Signal receieved: Exiting Disco Daemon", sig)
 		api.Stop()
-		// TODO
-		// os.Remove(discoDataPath + "/nodes/" + nodeId)
+		persist.Delete(PREFIX + "/nodes/" + nodeId)
 		os.Exit(0)
 	}(sigc)
 }
 
 func main() {
+	nodeId = uuid.New()
+
 	err := LoadConfig()
 	if err != nil {
 		log.Fatalf(err)
@@ -67,16 +73,16 @@ func main() {
 	}
 
 	persist, err = p.NewController(o)
-
-	nodeId := uuid.New()
+	if err != nil {
+		log.Fatalf(err)
+	}
 
 	createTree()
-
-	registerNode(nodeId)
+	registerNode()
 
 	api, err := NewDiscoAPI(nodeId)
 	if err != nil {
-		log.Fatal("FATAL: ", err)
+		log.Fatalf(err)
 	}
 
 	ensureCleanShutdown()
@@ -84,5 +90,5 @@ func main() {
 	go api.Start()
 	defer api.Stop()
 
-	StartPoller(nodeId)
+	StartPoller()
 }

@@ -3,16 +3,15 @@ package main
 import (
 	"crypto/md5"
 	"log"
-	"os"
 	"time"
 
 	"github.com/danielscottt/disco/pkg/discoclient"
 	"github.com/fsouza/go-dockerclient"
 )
 
-func poll(nodeId, discoPath, dockerPath string) {
+func poll() {
 
-	dClient := discoclient.NewClient(discoPath)
+	dClient := discoclient.NewClient(config.Disco.DiscoSocket)
 
 	ls, err := dClient.GetContainers()
 	if err != nil {
@@ -21,7 +20,7 @@ func poll(nodeId, discoPath, dockerPath string) {
 	}
 	lMap := mapList(ls)
 
-	cMap, err := getContainers(dockerPath)
+	cMap, err := getContainers()
 	if err != nil {
 		log.Println(err)
 		return
@@ -38,7 +37,7 @@ func poll(nodeId, discoPath, dockerPath string) {
 				continue
 			}
 		} else {
-			updateContainer(dClient, &c, (*lMap)[name], nodeId)
+			updateContainer(dClient, &c, (*lMap)[name])
 		}
 
 	}
@@ -46,7 +45,7 @@ func poll(nodeId, discoPath, dockerPath string) {
 	removeStaleContainers(lMap, cMap, dClient)
 }
 
-func updateContainer(dClient *discoclient.Client, c *docker.APIContainers, dc discoclient.Container, nodeId string) {
+func updateContainer(dClient *discoclient.Client, c *docker.APIContainers, dc discoclient.Container) {
 	current := &discoclient.Container{
 		HostNode: nodeId,
 		Name:     (*c).Names[0][1:],
@@ -80,11 +79,11 @@ func removeStaleContainers(lMap *map[string]discoclient.Container, cMap *map[str
 	}
 }
 
-func getContainers(dockerPath string) (*map[string]docker.APIContainers, error) {
+func getContainers() (*map[string]docker.APIContainers, error) {
 
 	cMap := make(map[string]docker.APIContainers)
 
-	client, err := docker.NewClient(dockerPath)
+	client, err := docker.NewClient(config.Disco.DockerSocket)
 	if err != nil {
 		log.Println(err)
 		return &cMap, nil
@@ -114,18 +113,11 @@ func mapList(ls []discoclient.Container) *map[string]discoclient.Container {
 	return &lMap
 }
 
-func StartPoller(nodeId, discoPath string) {
-
-	var dockerPath string
-	if os.Getenv("DOCKER_API_PATH") != "" {
-		dockerPath = os.Getenv("DOCKER_API_PATH")
-	} else {
-		log.Fatalf("Docker api path cannot be blank. Cannot start")
-	}
+func StartPoller() {
 
 	var dur string
-	if os.Getenv("DISCO_LOOP_TIME") != "" {
-		dur = os.Getenv("DISCO_LOOP_TIME")
+	if config.Disco.LoopTime {
+		dur = config.Disco.LoopTime
 	} else {
 		dur = "2s"
 	}
@@ -137,7 +129,7 @@ func StartPoller(nodeId, discoPath string) {
 	log.Println("START Poller:", dur, "loop time")
 
 	for {
-		poll(nodeId, discoPath, dockerPath)
+		poll()
 		time.Sleep(duration)
 	}
 }

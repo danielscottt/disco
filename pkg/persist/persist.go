@@ -3,9 +3,9 @@ package persist
 import "errors"
 
 type Controller interface {
-	Create() Reply
-	Delete() Reply
-	Read() Reply
+	Create(string, string, bool) (*Reply, error)
+	Delete(string) (*Reply, error)
+	Read(string) (*Reply, error)
 }
 
 type ControllerOptions struct {
@@ -18,18 +18,19 @@ type Reply struct {
 	Value       string
 	TransID     uint64
 	HasChildren bool
+	Children    []string
 }
 
-func NewController(options ControllerOptions) (Controller, err) {
+func NewController(options ControllerOptions) (Controller, error) {
 	var c Controller
 	var err error
-	if ControllerOptions.Type && ControllerOptions.Type == "etcd" {
+	if options.Type == "etcd" {
 		c, err = NewEtcdController(options)
 		if err != nil {
 			return c, err
 		}
 		return c, nil
 	} else {
-		return c, errors.New("Unknown Controller type: %s", options.Type)
+		return c, errors.New("Unknown Controller type: " + options.Type)
 	}
 }

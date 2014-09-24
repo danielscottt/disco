@@ -10,6 +10,7 @@ type DaemonConfig struct {
 	Disco struct {
 		DiscoSocket  string
 		DockerSocket string
+		LoopTime     string
 	}
 }
 

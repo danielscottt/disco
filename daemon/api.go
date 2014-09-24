@@ -3,10 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
-	"os"
 	"regexp"
 	"strings"
 )
@@ -20,12 +18,11 @@ type DiscoAPI struct {
 	connection net.Conn
 }
 
-func NewDiscoAPI(id, dataPath, socketPath string) (*DiscoAPI, error) {
+func NewDiscoAPI(id string) (*DiscoAPI, error) {
 
 	var d *DiscoAPI
 
-	log.Print("Disco socket Path: [", socketPath, "]")
-	log.Print("Disco data Path: [", dataPath, "]")
+	log.Print("Disco socket Path: [", config.Disco.DiscoSocket, "]")
 
 	l, err := net.Listen("unix", socketPath)
 	if err != nil {
@@ -35,8 +32,8 @@ func NewDiscoAPI(id, dataPath, socketPath string) (*DiscoAPI, error) {
 	d = &DiscoAPI{
 		listener:   l,
 		NodeId:     id,
-		SocketPath: socketPath,
-		DataPath:   dataPath,
+		SocketPath: config.Disco.DiscoSocket,
+		DataPath:   PREFIX,
 	}
 
 	return d, nil
@@ -122,19 +119,19 @@ func (d *DiscoAPI) Reply(response []byte) {
 
 func getContainersAPI(d *DiscoAPI) {
 	response := []byte{'['}
-	ls, err := ioutil.ReadDir(d.DataPath + "/containers")
+	rep, err := persist.Read(d.DataPath + "/containers")
 	if err != nil {
 		d.Reply([]byte(err.Error()))
 		return
 	}
-	for i, f := range ls {
-		data, err := scanContainerFile(d, f.Name())
+	for i, f := range rep.Children {
+		data, err := scanContainer(d, f)
 		if err != nil {
 			d.Reply([]byte(err.Error()))
 			return
 		}
 		response = append(response, data...)
-		if i != (len(ls) - 1) {
+		if i != (len(rep.Children) - 1) {
 			response = append(response, ',')
 		}
 	}
@@ -144,7 +141,7 @@ func getContainersAPI(d *DiscoAPI) {
 
 func getContainer(d *DiscoAPI, p string) {
 	name := getName(p)
-	data, err := scanContainerFile(d, name)
+	data, err := scanContainer(d, PREFIX+"/containers/"+name)
 	if err != nil {
 		d.Reply([]byte(err.Error()))
 		return
@@ -154,23 +151,23 @@ func getContainer(d *DiscoAPI, p string) {
 
 func addContainer(d *DiscoAPI, p string, payload []byte) {
 	name := getName(p)
-	path := fmt.Sprintf("%s/containers/%s", d.DataPath, name)
-	ioutil.WriteFile(path, payload, 644)
+	persist.Create(PREFIX+"/containers/"+name, string(payload), true)
 	d.Reply([]byte("success"))
 }
 
 func removeContainer(d *DiscoAPI, p string) {
 	name := getName(p)
-	path := fmt.Sprintf("%s/containers/%s", d.DataPath, name)
-	os.Remove(path)
+	persist.Delete(PREFIX + "/containers/" + name)
 	d.Reply([]byte("success"))
 }
 
-func scanContainerFile(d *DiscoAPI, name string) ([]byte, error) {
-	data, err := ioutil.ReadFile(fmt.Sprintf("%s/containers/%s", d.DataPath, name))
+func scanContainer(d *DiscoAPI, path string) ([]byte, error) {
+	var data []byte
+	rep, err := persist.Read(path)
 	if err != nil {
 		return data, err
 	}
+	data = []byte(rep.Value)
 	return data, nil
 }
 
