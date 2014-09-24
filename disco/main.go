@@ -2,24 +2,28 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/danielscottt/commando"
 	"github.com/danielscottt/disco/pkg/discoclient"
-	"github.com/fsouza/go-dockerclient"
+	dockerclient "github.com/fsouza/go-dockerclient"
 )
 
 var (
-	link *commando.Command
-	c    *discoclient.Client
-	d    *docker.Client
+	disco  *discoclient.Client
+	docker *dockerclient.Client
 )
 
 func main() {
-	c = discoclient.NewClient("/var/run/disco.sock")
-	d = docker.NewClient("/var/run/docker.sock")
+	var err error
 
-	disco := &commando.Command{
+	disco = discoclient.NewClient("/var/run/disco.sock")
+	docker, err = dockerclient.NewClient("unix:///var/run/docker.sock")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	root := &commando.Command{
 		Name:        "disco",
 		Description: "A Container Network Discovery tool",
 	}
@@ -31,42 +35,22 @@ func main() {
 	}
 	link.AddOption("targets", "The target container(s) [NAME=container:port", true, "-t", "--target")
 	link.AddOption("image", "Image to create linked container from", true, "-i", "--image")
-	disco.AddSubCommand(link)
+	link.AddOption("name", "Name to give linked container", true, "-n", "--name")
+	root.AddSubCommand(link)
 
 	nodeId := &commando.Command{
 		Name:        "node-id",
 		Description: "Get Disco Node Id",
-		Execute: func() {
-			id, err := c.GetNodeId()
-			if err != nil {
-				fmt.Println("Error:", err)
-			}
-			fmt.Println(id)
-		},
+		Execute:     getNodeId,
 	}
-	disco.AddSubCommand(nodeId)
+	root.AddSubCommand(nodeId)
 
 	list := &commando.Command{
 		Name:        "list",
 		Description: "List Disco-managed Containers",
-		Execute: func() {
-			cons, err := c.GetContainers()
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			commando.PrintFields(false, 0, "NAME", "HOST NODE", "DOCKER ID", "PORTS", "LINKS")
-			for _, con := range cons {
-				var portMap []string
-				for _, p := range con.Ports {
-					portMap = append(portMap, fmt.Sprintf("%d:%d", p.PrivatePort, p.PublicPort))
-				}
-				portString := strings.Join(portMap, ", ")
-				commando.PrintFields(false, 0, con.Name, con.HostNode, con.Id[:12], portString, "soon...")
-			}
-		},
+		Execute:     listContainers,
 	}
-	disco.AddSubCommand(list)
+	root.AddSubCommand(list)
 
-	disco.Parse()
+	root.Parse()
 }
