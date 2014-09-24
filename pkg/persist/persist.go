@@ -6,6 +6,8 @@ type Controller interface {
 	Create(string, string, bool) (*Reply, error)
 	Delete(string) (*Reply, error)
 	Read(string) (*Reply, error)
+	CreatePath(string) (*Reply, error)
+	Exists(string) (bool, error)
 }
 
 type ControllerOptions struct {
@@ -21,7 +23,7 @@ type Reply struct {
 	Children    []string
 }
 
-func NewController(options ControllerOptions) (Controller, error) {
+func NewController(options *ControllerOptions) (Controller, error) {
 	var c Controller
 	var err error
 	if options.Type == "etcd" {

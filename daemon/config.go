@@ -14,6 +14,8 @@ type DaemonConfig struct {
 	}
 }
 
+var config DaemonConfig
+
 func LoadConfig() error {
 	err := gcfg.ReadFileInto(&config, "/etc/disco/disco.conf")
 	if err != nil {

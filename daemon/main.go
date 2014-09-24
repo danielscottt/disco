@@ -20,15 +20,20 @@ const (
 
 var (
 	nodeId  string
-	persist *p.Controller
-	config  *DaemonConfig
+	persist p.Controller
 )
 
 func createTree() {
 	for _, p := range []string{"nodes", "containers", "links"} {
-		_, err := persist.Create(PREFIX+"/"+p, "", true)
+		exists, err := persist.Exists(PREFIX + "/" + p)
 		if err != nil {
-			log.Fatalf(err)
+			log.Fatalf(err.Error())
+		}
+		if !exists {
+			_, err := persist.CreatePath(PREFIX + "/" + p)
+			if err != nil {
+				log.Fatalf(err.Error())
+			}
 		}
 	}
 }
@@ -41,22 +46,10 @@ func registerNode() {
 			addrsStrings = append(addrsStrings, a.String())
 		}
 	}
-	_, err := persist.Create(PREFIX+"/nodes/"+nodeId, []byte(strings.Join(addrsStrings, ",")), false)
+	_, err := persist.Create(PREFIX+"/nodes/"+nodeId, strings.Join(addrsStrings, ","), false)
 	if err != nil {
-		log.Fatalf(err)
+		log.Fatalf(err.Error())
 	}
-}
-
-func ensureCleanShutdown() {
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
-	go func(c chan os.Signal) {
-		sig := <-c
-		log.Printf("%s Signal receieved: Exiting Disco Daemon", sig)
-		api.Stop()
-		persist.Delete(PREFIX + "/nodes/" + nodeId)
-		os.Exit(0)
-	}(sigc)
 }
 
 func main() {
@@ -64,7 +57,7 @@ func main() {
 
 	err := LoadConfig()
 	if err != nil {
-		log.Fatalf(err)
+		log.Fatalf(err.Error())
 	}
 
 	o := &p.ControllerOptions{
@@ -74,7 +67,7 @@ func main() {
 
 	persist, err = p.NewController(o)
 	if err != nil {
-		log.Fatalf(err)
+		log.Fatalf(err.Error())
 	}
 
 	createTree()
@@ -82,10 +75,18 @@ func main() {
 
 	api, err := NewDiscoAPI(nodeId)
 	if err != nil {
-		log.Fatalf(err)
+		log.Fatalf(err.Error())
 	}
 
-	ensureCleanShutdown()
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
+	go func(c chan os.Signal) {
+		sig := <-c
+		log.Printf("%s Signal receieved: Exiting Disco Daemon", sig)
+		api.Stop()
+		persist.Delete(PREFIX + "/nodes/" + nodeId)
+		os.Exit(0)
+	}(sigc)
 
 	go api.Start()
 	defer api.Stop()

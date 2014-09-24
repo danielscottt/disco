@@ -73,7 +73,7 @@ func removeStaleContainers(lMap *map[string]discoclient.Container, cMap *map[str
 		if _, present := (*cMap)[l.Name]; !present {
 			log.Print("Removing Container [", l.Name, "]")
 			if err := (*dClient).RemoveContainer(l.Name); err != nil {
-				log.Print("Error removing container [", l.Name, "]")
+				log.Print("Error removing container [", l.Name, "]: ", err.Error())
 			}
 		}
 	}
@@ -116,7 +116,7 @@ func mapList(ls []discoclient.Container) *map[string]discoclient.Container {
 func StartPoller() {
 
 	var dur string
-	if config.Disco.LoopTime {
+	if config.Disco.LoopTime != "" {
 		dur = config.Disco.LoopTime
 	} else {
 		dur = "2s"

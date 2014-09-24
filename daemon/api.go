@@ -10,12 +10,12 @@ import (
 )
 
 type DiscoAPI struct {
-	NodeId     string
-	SocketPath string
-	DataPath   string
+	NodeId   string
+	DataPath string
 
 	listener   net.Listener
 	connection net.Conn
+	stop       chan bool
 }
 
 func NewDiscoAPI(id string) (*DiscoAPI, error) {
@@ -24,17 +24,17 @@ func NewDiscoAPI(id string) (*DiscoAPI, error) {
 
 	log.Print("Disco socket Path: [", config.Disco.DiscoSocket, "]")
 
-	l, err := net.Listen("unix", socketPath)
+	l, err := net.Listen("unix", "/var/run/disco.sock")
 	if err != nil {
 		return d, err
 	}
 
 	d = &DiscoAPI{
-		listener:   l,
-		NodeId:     id,
-		SocketPath: config.Disco.DiscoSocket,
-		DataPath:   PREFIX,
+		listener: l,
+		NodeId:   id,
+		DataPath: PREFIX,
 	}
+	d.stop = make(chan bool, 1)
 
 	return d, nil
 }
@@ -46,14 +46,20 @@ func (d *DiscoAPI) Start() {
 	for {
 		d.connection, err = d.listener.Accept()
 		if err != nil {
-			log.Println("Error reading socket")
-			continue
+			select {
+			case <-d.stop:
+				return
+			default:
+				log.Println("Accepting socket failed:", err.Error())
+				continue
+			}
 		}
 		go d.handleSocketRequest()
 	}
 }
 
 func (d *DiscoAPI) Stop() {
+	d.stop <- true
 	if d.connection != nil {
 		d.connection.Close()
 	}
@@ -157,7 +163,11 @@ func addContainer(d *DiscoAPI, p string, payload []byte) {
 
 func removeContainer(d *DiscoAPI, p string) {
 	name := getName(p)
-	persist.Delete(PREFIX + "/containers/" + name)
+	_, err := persist.Delete(PREFIX + "/containers/" + name)
+	if err != nil {
+		d.Reply([]byte(err.Error()))
+		return
+	}
 	d.Reply([]byte("success"))
 }
 

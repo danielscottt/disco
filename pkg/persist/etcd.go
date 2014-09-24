@@ -8,7 +8,7 @@ type EtcdController struct {
 	client *etcd.Client
 }
 
-func NewEtcdController(options ControllerOptions) (*EtcdController, error) {
+func NewEtcdController(options *ControllerOptions) (*EtcdController, error) {
 	ec := &EtcdController{
 		Nodes: options.Nodes,
 	}
@@ -33,6 +33,20 @@ func (e *EtcdController) Create(path string, value string, update bool) (*Reply,
 		if err != nil {
 			return r, err
 		}
+	}
+	r = &Reply{
+		Location: resp.Node.Key,
+		Value:    resp.Node.Value,
+		TransID:  resp.Node.ModifiedIndex,
+	}
+	return r, nil
+}
+
+func (e *EtcdController) CreatePath(path string) (*Reply, error) {
+	var r *Reply
+	resp, err := e.client.CreateDir(path, 0)
+	if err != nil {
+		return r, err
 	}
 	r = &Reply{
 		Location: resp.Node.Key,
@@ -76,4 +90,16 @@ func (e *EtcdController) Delete(path string) (*Reply, error) {
 		TransID:  resp.Node.ModifiedIndex,
 	}
 	return r, nil
+}
+
+func (e *EtcdController) Exists(path string) (bool, error) {
+	_, err := e.client.Get(path, false, false)
+	if err != nil {
+		etcdError := err.(*etcd.EtcdError)
+		if etcdError.ErrorCode == 100 {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

@@ -80,7 +80,7 @@ func (c *Client) RegisterContainer(con *docker.APIContainers) error {
 
 func (c *Client) RemoveContainer(name string) error {
 
-	reply, err := c.do(fmt.Sprintf("/disco/api/remove_container\n%s", name))
+	reply, err := c.do("/disco/api/remove_container/" + name)
 	if err != nil {
 		return err
 	}
