@@ -91,7 +91,6 @@ func (d *DiscoAPI) handleSocketRequest() {
 func (d *DiscoAPI) routeRequest(path, payload []byte) {
 
 	p := string(path)
-	log.Print("Received request [", p, "]")
 
 	getCont := regexp.MustCompile("/disco/api/get_container")
 	rmCont := regexp.MustCompile("/disco/api/remove_container")
