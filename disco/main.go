@@ -33,7 +33,7 @@ func main() {
 		Description: "Link containers together",
 		Execute:     linkContainers,
 	}
-	link.AddOption("targets", "The target container(s) [NAME=container:port", true, "-t", "--target")
+	link.AddOption("targets", "The target container(s) [NAME=container:port]", true, "-t", "--target")
 	link.AddOption("image", "Image to create linked container from", true, "-i", "--image")
 	link.AddOption("name", "Name to give linked container", true, "-n", "--name")
 	root.AddSubCommand(link)
