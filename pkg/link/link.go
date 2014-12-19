@@ -1,12 +1,14 @@
 package link
 
-import (
-	"github.com/danielscottt/disco/pkg/discoclient"
-)
-
 type Link struct {
-	Id      string
-	Source  *discoclient.Container
-	Target  *discoclient.Container
-	PortMap map[string]Port
+	Id     string
+	Source container
+	Target container
+	Ports  []Port
+}
+
+type Port struct {
+}
+
+type container interface {
 }

@@ -7,6 +7,8 @@ import (
 	"net"
 
 	"github.com/fsouza/go-dockerclient"
+
+	"github.com/danielscottt/disco/pkg/link"
 )
 
 type Client struct {
@@ -120,7 +122,7 @@ type Container struct {
 	HostNode string
 	Ports    []docker.APIPort
 	Id       string
-	Links    []Link
+	Links    []*link.Link
 }
 
 func (c *Container) Marshal() ([]byte, error) {
