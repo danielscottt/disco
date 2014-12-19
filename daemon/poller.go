@@ -15,14 +15,14 @@ func poll() {
 
 	ls, err := dClient.GetContainers()
 	if err != nil {
-		log.Println(err)
+		log.Println("Disco client:", err)
 		return
 	}
 	lMap := mapList(ls)
 
 	cMap, err := getContainers()
 	if err != nil {
-		log.Println(err)
+		log.Println("Docker:", err)
 		return
 	}
 
@@ -86,13 +86,13 @@ func getContainers() (*map[string]docker.APIContainers, error) {
 	client, err := docker.NewClient(config.Disco.DockerSocket)
 	if err != nil {
 		log.Println(err)
-		return &cMap, nil
+		return &cMap, err
 	}
 
 	cs, err := client.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
 		log.Println(err)
-		return &cMap, nil
+		return &cMap, err
 	}
 
 	mapContainers(&cMap, cs)

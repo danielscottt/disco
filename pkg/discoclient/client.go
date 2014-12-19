@@ -131,13 +131,6 @@ func (c *Container) Marshal() ([]byte, error) {
 	return cJson, nil
 }
 
-type Link struct {
-	Id      string
-	Source  *Container
-	Target  *Container
-	PortMap map[string]Port
-}
-
 type Port struct {
 	Name    string
 	Private int
