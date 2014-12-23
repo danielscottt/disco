@@ -11,6 +11,7 @@ import (
 
 	"code.google.com/p/go-uuid/uuid"
 
+	"github.com/danielscottt/disco/pkg/discoclient"
 	p "github.com/danielscottt/disco/pkg/persist"
 )
 
@@ -21,6 +22,8 @@ const (
 var (
 	nodeId  string
 	persist p.Controller
+	dc      *discoclient.Client
+	api     *DiscoAPI
 )
 
 func createTree() {
@@ -52,32 +55,33 @@ func registerNode() {
 	}
 }
 
-func main() {
+func init() {
 	nodeId = uuid.New()
-
 	err := LoadConfig()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-
 	o := &p.ControllerOptions{
 		Nodes: config.Persist.Nodes,
 		Type:  config.Persist.Type,
 	}
-
 	persist, err = p.NewController(o)
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-
 	createTree()
 	registerNode()
-
-	api, err := NewDiscoAPI(nodeId)
+	api, err = NewDiscoAPI(&ApiConfig{
+		Id:        nodeId,
+		DockerUri: config.Disco.DockerSocket,
+	})
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-
+	dc = discoclient.NewClient("/var/run/disco.sock")
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
 	go func(c chan os.Signal) {
@@ -87,9 +91,10 @@ func main() {
 		persist.Delete(PREFIX + "/nodes/" + nodeId)
 		os.Exit(0)
 	}(sigc)
+}
 
+func main() {
 	go api.Start()
 	defer api.Stop()
-
 	StartPoller()
 }

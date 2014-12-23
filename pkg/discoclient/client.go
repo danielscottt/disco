@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/fsouza/go-dockerclient"
+	"github.com/danielscottt/disco/pkg/disco"
 )
 
 type Client struct {
@@ -48,26 +48,14 @@ func (c *Client) GetNodeId() (string, error) {
 	return string(id), nil
 }
 
-func (c *Client) RegisterContainer(con *docker.APIContainers) error {
+func (c *Client) RegisterContainer(con *disco.Container) error {
 
-	id, err := c.GetNodeId()
+	cJson, err := con.Marshal()
 	if err != nil {
 		return err
 	}
 
-	ct := &Container{
-		HostNode: id,
-		Name:     (*con).Names[0][1:],
-		Id:       (*con).ID,
-		Ports:    (*con).Ports,
-	}
-
-	cJson, err := ct.Marshal()
-	if err != nil {
-		return err
-	}
-
-	reply, err := c.do(fmt.Sprintf("/disco/api/add_container/%s\n%s", ct.Name, cJson))
+	reply, err := c.do(fmt.Sprintf("/disco/api/add_container/%s\n%s", con.Name, cJson))
 	if err != nil {
 		return err
 	}
@@ -91,8 +79,8 @@ func (c *Client) RemoveContainer(name string) error {
 	return nil
 }
 
-func (c *Client) GetContainer(name string) (*Container, error) {
-	var con Container
+func (c *Client) GetContainer(name string) (*disco.Container, error) {
+	var con disco.Container
 	reply, err := c.do(fmt.Sprintf("/disco/api/get_container/%s", name))
 	if err != nil {
 		return &con, err
@@ -103,8 +91,8 @@ func (c *Client) GetContainer(name string) (*Container, error) {
 	return &con, nil
 }
 
-func (c *Client) GetContainers() ([]Container, error) {
-	var cons []Container
+func (c *Client) GetContainers() ([]disco.Container, error) {
+	var cons []disco.Container
 	reply, err := c.do("/disco/api/get_containers")
 	if err != nil {
 		return cons, err
@@ -115,31 +103,14 @@ func (c *Client) GetContainers() ([]Container, error) {
 	return cons, nil
 }
 
-type Container struct {
-	Name     string
-	HostNode string
-	Ports    []docker.APIPort
-	Id       string
-	Links    []Link
-}
-
-func (c *Container) Marshal() ([]byte, error) {
-	cJson, err := json.Marshal(c)
+func (c *Client) CollectDockerContainers() ([]disco.Container, error) {
+	var cons []disco.Container
+	reply, err := c.do("/disco/api/docker/collect")
 	if err != nil {
-		return cJson, err
+		return cons, err
 	}
-	return cJson, nil
-}
-
-type Link struct {
-	Id      string
-	Source  *Container
-	Target  *Container
-	PortMap map[string]Port
-}
-
-type Port struct {
-	Name    string
-	Private int
-	Public  int
+	if err := json.Unmarshal(reply, &cons); err != nil {
+		return cons, err
+	}
+	return cons, nil
 }

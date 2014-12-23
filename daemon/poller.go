@@ -1,120 +1,88 @@
 package main
 
 import (
-	"crypto/md5"
 	"log"
 	"time"
 
-	"github.com/danielscottt/disco/pkg/discoclient"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/danielscottt/disco/pkg/disco"
 )
 
 func poll() {
-
-	dClient := discoclient.NewClient(config.Disco.DiscoSocket)
-
-	ls, err := dClient.GetContainers()
+	lMap, err := getDiscoContainers()
+	cMap, err := collectDockerContainers()
 	if err != nil {
-		log.Println("Disco client:", err)
+		log.Println("Error collecting Docker Containers", err)
 		return
 	}
-	lMap := mapList(ls)
-
-	cMap, err := getContainers()
-	if err != nil {
-		log.Println("Docker:", err)
-		return
-	}
-
 	for _, c := range *cMap {
-
-		name := c.Names[0][1:]
-
-		if _, present := (*lMap)[name]; !present {
-			log.Print("New container [", name, "] discovered")
-			if err := dClient.RegisterContainer(&c); err != nil {
+		if _, present := (*lMap)[c.Name]; !present {
+			log.Print("New container [", c.Name, "] discovered")
+			if err := dc.RegisterContainer(c); err != nil {
 				log.Print("Error: ", err)
 				continue
 			}
 		} else {
-			updateContainer(dClient, &c, (*lMap)[name])
+			updateContainer(c, (*lMap)[c.Name])
 		}
-
 	}
-
-	removeStaleContainers(lMap, cMap, dClient)
+	removeStaleContainers(lMap, cMap)
 }
 
-func updateContainer(dClient *discoclient.Client, c *docker.APIContainers, dc discoclient.Container) {
-	current := &discoclient.Container{
-		HostNode: nodeId,
-		Name:     (*c).Names[0][1:],
-		Id:       (*c).ID,
-		Ports:    (*c).Ports,
-	}
-	currentJson, err := current.Marshal()
-	existingJson, err := dc.Marshal()
+func updateContainer(fromDocker, fromDisco *disco.Container) {
+	dockerHash, err := fromDocker.Hash()
+	discoHash, err := fromDisco.Hash()
 	if err != nil {
-		log.Print(err)
+		log.Print("Update error:" + err.Error())
 		return
 	}
-	existingHash := md5.Sum(existingJson)
-	currentHash := md5.Sum(currentJson)
-	if existingHash != currentHash {
-		log.Print("Container [", dc.Name, "] exists but has been updated")
-		if err := (*dClient).RegisterContainer(c); err != nil {
+	if dockerHash != discoHash {
+		log.Print("Container [", fromDisco.Name, "] exists but has been updated")
+		if err := dc.RegisterContainer(fromDocker); err != nil {
 			log.Print("Error: ", err)
 		}
 	}
 }
 
-func removeStaleContainers(lMap *map[string]discoclient.Container, cMap *map[string]docker.APIContainers, dClient *discoclient.Client) {
+func removeStaleContainers(lMap *map[string]*disco.Container, cMap *map[string]*disco.Container) {
 	for _, l := range *lMap {
 		if _, present := (*cMap)[l.Name]; !present {
 			log.Print("Removing Container [", l.Name, "]")
-			if err := (*dClient).RemoveContainer(l.Name); err != nil {
+			if err := dc.RemoveContainer(l.Name); err != nil {
 				log.Print("Error removing container [", l.Name, "]: ", err.Error())
 			}
 		}
 	}
 }
 
-func getContainers() (*map[string]docker.APIContainers, error) {
+func getDiscoContainers() (*map[string]*disco.Container, error) {
+	lMap := make(map[string]*disco.Container)
+	ls, err := dc.GetContainers()
+	if err != nil {
+		log.Println("Error retrieving Disco Containers:", err)
+		return &lMap, err
+	}
+	mapContainers(&lMap, ls)
+	return &lMap, nil
+}
 
-	cMap := make(map[string]docker.APIContainers)
-
-	client, err := docker.NewClient(config.Disco.DockerSocket)
+func collectDockerContainers() (*map[string]*disco.Container, error) {
+	cMap := make(map[string]*disco.Container)
+	cs, err := dc.CollectDockerContainers()
 	if err != nil {
 		log.Println(err)
 		return &cMap, err
 	}
-
-	cs, err := client.ListContainers(docker.ListContainersOptions{})
-	if err != nil {
-		log.Println(err)
-		return &cMap, err
-	}
-
 	mapContainers(&cMap, cs)
 	return &cMap, nil
 }
 
-func mapContainers(mapPointer *map[string]docker.APIContainers, cs []docker.APIContainers) {
+func mapContainers(mapPointer *map[string]*disco.Container, cs []disco.Container) {
 	for _, c := range cs {
-		(*mapPointer)[c.Names[0][1:]] = c
+		(*mapPointer)[c.Name] = &c
 	}
-}
-
-func mapList(ls []discoclient.Container) *map[string]discoclient.Container {
-	lMap := make(map[string]discoclient.Container)
-	for _, l := range ls {
-		lMap[l.Name] = l
-	}
-	return &lMap
 }
 
 func StartPoller() {
-
 	var dur string
 	if config.Disco.LoopTime != "" {
 		dur = config.Disco.LoopTime
@@ -125,9 +93,7 @@ func StartPoller() {
 	if err != nil {
 		log.Fatalf("Invalid Loop Time given")
 	}
-
 	log.Println("START Poller:", dur, "loop time")
-
 	for {
 		poll()
 		time.Sleep(duration)

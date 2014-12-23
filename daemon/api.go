@@ -6,23 +6,30 @@ import (
 	"log"
 	"net"
 	"regexp"
-	"strings"
+
+	"github.com/fsouza/go-dockerclient"
 )
 
 type DiscoAPI struct {
 	NodeId   string
 	DataPath string
 
+	docker     *docker.Client
 	listener   net.Listener
 	connection net.Conn
 	stop       chan bool
 }
 
-func NewDiscoAPI(id string) (*DiscoAPI, error) {
+type ApiConfig struct {
+	Id        string
+	DockerUri string
+}
+
+func NewDiscoAPI(config *ApiConfig) (*DiscoAPI, error) {
 
 	var d *DiscoAPI
 
-	log.Print("Disco socket Path: [", config.Disco.DiscoSocket, "]")
+	log.Print("Disco socket Path: [/var/dun/disco.sock]")
 
 	l, err := net.Listen("unix", "/var/run/disco.sock")
 	if err != nil {
@@ -31,9 +38,10 @@ func NewDiscoAPI(id string) (*DiscoAPI, error) {
 
 	d = &DiscoAPI{
 		listener: l,
-		NodeId:   id,
+		NodeId:   config.Id,
 		DataPath: PREFIX,
 	}
+	d.docker, err = docker.NewClient(config.DockerUri)
 	d.stop = make(chan bool, 1)
 
 	return d, nil
@@ -100,13 +108,15 @@ func (d *DiscoAPI) routeRequest(path, payload []byte) {
 	case p == "/disco/local/node_id":
 		d.Reply([]byte(d.NodeId))
 	case p == "/disco/api/get_containers":
-		getContainersAPI(d)
+		d.getContainers()
+	case p == "/disco/api/docker/collect":
+		d.collectDockerContainers()
 	case addCont.MatchString(p):
-		addContainer(d, p, payload)
+		d.addContainer(p, payload)
 	case rmCont.MatchString(p):
-		removeContainer(d, p)
+		d.removeContainer(p)
 	case getCont.MatchString(p):
-		getContainer(d, p)
+		d.getContainer(p)
 	default:
 		log.Print("Request path [", p, "] not found")
 		err := fmt.Sprintf("Error: Invalid request path [%s]", p)
@@ -120,67 +130,4 @@ func (d *DiscoAPI) Reply(response []byte) {
 		log.Println("Error in replying to request")
 		return
 	}
-}
-
-func getContainersAPI(d *DiscoAPI) {
-	response := []byte{'['}
-	rep, err := persist.Read(d.DataPath + "/containers")
-	if err != nil {
-		d.Reply([]byte(err.Error()))
-		return
-	}
-	for i, f := range rep.Children {
-		data, err := scanContainer(d, f)
-		if err != nil {
-			d.Reply([]byte(err.Error()))
-			return
-		}
-		response = append(response, data...)
-		if i != (len(rep.Children) - 1) {
-			response = append(response, ',')
-		}
-	}
-	response = append(response, ']')
-	d.Reply(response)
-}
-
-func getContainer(d *DiscoAPI, p string) {
-	name := getName(p)
-	data, err := scanContainer(d, PREFIX+"/containers/"+name)
-	if err != nil {
-		d.Reply([]byte(err.Error()))
-		return
-	}
-	d.Reply(data)
-}
-
-func addContainer(d *DiscoAPI, p string, payload []byte) {
-	name := getName(p)
-	persist.Create(PREFIX+"/containers/"+name, string(payload), true)
-	d.Reply([]byte("success"))
-}
-
-func removeContainer(d *DiscoAPI, p string) {
-	name := getName(p)
-	_, err := persist.Delete(PREFIX + "/containers/" + name)
-	if err != nil {
-		d.Reply([]byte(err.Error()))
-		return
-	}
-	d.Reply([]byte("success"))
-}
-
-func scanContainer(d *DiscoAPI, path string) ([]byte, error) {
-	var data []byte
-	rep, err := persist.Read(path)
-	if err != nil {
-		return data, err
-	}
-	data = []byte(rep.Value)
-	return data, nil
-}
-
-func getName(path string) string {
-	pathArr := strings.Split(path, "/")
-	return pathArr[len(pathArr)-1]
 }
