@@ -9,8 +9,10 @@ type Container struct {
 	Name     string
 	HostNode string
 	Id       string
-	Links    []string
+	Links    map[string][]string
 	Ports    []Port
+	Env      []string
+	Image    string
 }
 
 type Port struct {

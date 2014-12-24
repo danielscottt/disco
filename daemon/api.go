@@ -114,6 +114,7 @@ func (d *DiscoAPI) routeRequest(path, payload []byte) {
 	getCont := regexp.MustCompile("/disco/api/get_container")
 	rmCont := regexp.MustCompile("/disco/api/remove_container")
 	addCont := regexp.MustCompile("/disco/api/add_container")
+	createDocker := regexp.MustCompile("/disco/api/docker/create")
 
 	switch {
 	case p == "/disco/local/node_id":
@@ -122,6 +123,8 @@ func (d *DiscoAPI) routeRequest(path, payload []byte) {
 		d.getContainers()
 	case p == "/disco/api/docker/collect":
 		d.collectDockerContainers()
+	case createDocker.MatchString(p):
+		d.createDockerContainer(p, payload)
 	case addCont.MatchString(p):
 		d.addContainer(p, payload)
 	case rmCont.MatchString(p):

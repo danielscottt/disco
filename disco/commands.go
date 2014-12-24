@@ -37,65 +37,29 @@ func listContainers() {
 }
 
 func linkContainers() {
+	links := make([]*disco.Link, 0)
 	switch val := link.Options["targets"].Value.(type) {
 	case string:
-		name, container, port := parseTarget(val)
-		target, err := disco.GetContainer(container)
+		link, err := linkContainer(val)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(err.Error())
 			return
 		}
-		id, err := disco.GetNodeId()
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		if id != target.HostNode {
-			// handle disparate node
-		} else {
-			inspectTarget, err := docker.InspectContainer(target.Id)
-			if err != nil {
-				fmt.Println(err.Error())
-				return
-			}
-			create := dockerclient.CreateContainerOptions{
-				Name: link.Options["name"].Value.(string),
-			}
-			env := []string{}
-			for _, p := range target.Ports {
-				if p.PrivatePort == port {
-					env = append(env, name+"_PORT="+fmt.Sprintf("%d", p.PrivatePort))
-					env = append(env, name+"_HOST="+inspectTarget.NetworkSettings.IPAddress)
-				}
-			}
-			config := &dockerclient.Config{
-				Image:           link.Options["image"].Value.(string),
-				Env:             env,
-				NetworkDisabled: false,
-				AttachStdin:     false,
-				AttachStdout:    false,
-				AttachStderr:    false,
-			}
-			create.Config = config
-			c, err := docker.CreateContainer(create)
-			if err != nil {
-				fmt.Println(err.Error())
-				return
-			}
-			hc := &dockerclient.HostConfig{
-				NetworkMode:     "bridge",
-				PublishAllPorts: true,
-			}
-			hc.LxcConf = make([]dockerclient.KeyValuePair, 0)
-			hc.PortBindings = make(map[dockerclient.Port][]dockerclient.PortBinding)
-			err = docker.StartContainer(c.ID, hc)
-			if err != nil {
-				fmt.Println(err.Error())
-				return
-			}
-			fmt.Println(c.ID)
-		}
+		links = append(links, link)
 	case []string:
+		for _, v := range val {
+			link, err := linkContainer(val)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+			links = append(links, link)
+		}
+
+	}
+	commando.PrintFields(false, 0, "SOURCE", "TARGET", "LINK ID")
+	for _, link := range links {
+		commando.PrintFields(false, 0, link.Source.Name, link.Target, link.Id)
 	}
 }
 
@@ -105,4 +69,28 @@ func parseTarget(input string) (string, string, int64) {
 	container := strings.Split(split[1], ":")[0]
 	port, _ := strconv.ParseInt(strings.Split(split[1], ":")[1], 0, 0)
 	return name, container, port
+}
+
+func linkContainer(v string) *disco.Link {
+	var link *disco.Link
+	name, container, port := parseTarget(v)
+	target, err := disco.GetContainer(container)
+	if err != nil {
+		return link, err
+	}
+	sourceName := link.Options["name"].Value.(string)
+	sourceImage := link.Options["image"].Value.(string)
+	source := makeContainer(sourceName, sourceImage)
+	link = disco.LinkContainers(source, target)
+	if err != nil {
+		return link, err
+	}
+	return link, nil
+}
+
+func makeContainer(name, image string) *disco.Container {
+	c := &disco.Container{
+		Name:  name,
+		Image: image,
+	}
 }
