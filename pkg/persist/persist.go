@@ -4,7 +4,7 @@ import "errors"
 
 type Controller interface {
 	Create(string, string, bool) (*Reply, error)
-	Delete(string) (*Reply, error)
+	Delete(string, bool) (*Reply, error)
 	Read(string) (*Reply, error)
 	CreatePath(string) (*Reply, error)
 	Exists(string) (bool, error)

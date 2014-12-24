@@ -13,7 +13,7 @@ func (d *DiscoAPI) collectDockerContainers() {
 	cs := make([]*disco.Container, len(ds))
 	for i, dcont := range ds {
 		c := &disco.Container{
-			HostNode: nodeId,
+			HostNode: node.Id,
 			Name:     dcont.Names[0][1:],
 			Id:       dcont.ID,
 		}

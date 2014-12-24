@@ -78,9 +78,9 @@ func (e *EtcdController) Read(path string) (*Reply, error) {
 	return r, nil
 }
 
-func (e *EtcdController) Delete(path string) (*Reply, error) {
+func (e *EtcdController) Delete(path string, recursive bool) (*Reply, error) {
 	var r *Reply
-	resp, err := e.client.Delete(path, false)
+	resp, err := e.client.Delete(path, recursive)
 	if err != nil {
 		return r, err
 	}

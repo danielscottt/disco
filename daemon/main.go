@@ -2,15 +2,11 @@ package main
 
 import (
 	"log"
-	"net"
 	"os"
 	"os/signal"
-	"regexp"
-	"strings"
 	"syscall"
 
-	"code.google.com/p/go-uuid/uuid"
-
+	"github.com/danielscottt/disco/pkg/disco"
 	"github.com/danielscottt/disco/pkg/discoclient"
 	p "github.com/danielscottt/disco/pkg/persist"
 )
@@ -20,14 +16,13 @@ const (
 )
 
 var (
-	nodeId  string
-	persist p.Controller
-	dc      *discoclient.Client
-	api     *DiscoAPI
+	node *disco.Node
+	dc   *discoclient.Client
+	api  *DiscoAPI
 )
 
-func createTree() {
-	for _, p := range []string{"nodes", "containers", "links"} {
+func createTree(persist p.Controller) {
+	for _, p := range []string{"nodes", "containers/nodes", "containers/master", "links"} {
 		exists, err := persist.Exists(PREFIX + "/" + p)
 		if err != nil {
 			log.Fatalf(err.Error())
@@ -41,22 +36,20 @@ func createTree() {
 	}
 }
 
-func registerNode() {
-	addrs, _ := net.InterfaceAddrs()
-	addrsStrings := make([]string, 0)
-	for _, a := range addrs {
-		if match, _ := regexp.MatchString("::", a.String()); !match {
-			addrsStrings = append(addrsStrings, a.String())
-		}
+func registerNode(persist p.Controller) {
+	node = disco.NewNode()
+	nj, err := node.Marshal()
+	if err != nil {
+		log.Fatalf(err.Error())
 	}
-	_, err := persist.Create(PREFIX+"/nodes/"+nodeId, strings.Join(addrsStrings, ","), false)
+	_, err = persist.Create(PREFIX+"/nodes/"+node.Id, string(nj), false)
+	_, err = persist.CreatePath(PREFIX + "/containers/nodes/" + node.Id)
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 }
 
 func init() {
-	nodeId = uuid.New()
 	err := LoadConfig()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -65,15 +58,16 @@ func init() {
 		Nodes: config.Persist.Nodes,
 		Type:  config.Persist.Type,
 	}
-	persist, err = p.NewController(o)
+	persist, err := p.NewController(o)
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-	createTree()
-	registerNode()
+	createTree(persist)
+	registerNode(persist)
 	api, err = NewDiscoAPI(&ApiConfig{
-		Id:        nodeId,
+		Id:        node.Id,
 		DockerUri: config.Disco.DockerSocket,
+		Persist:   persist,
 	})
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -88,7 +82,6 @@ func init() {
 		sig := <-c
 		log.Printf("%s Signal receieved: Exiting Disco Daemon", sig)
 		api.Stop()
-		persist.Delete(PREFIX + "/nodes/" + nodeId)
 		os.Exit(0)
 	}(sigc)
 }
