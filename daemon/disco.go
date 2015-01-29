@@ -79,6 +79,21 @@ func (d *DiscoAPI) clearOutContainer(p string) error {
 	return nil
 }
 
+func (d *DiscoAPI) createLink(payload []byte) {
+	var l disco.Link
+	err := json.Unmarshal(payload, &l)
+	if err != nil {
+		d.Reply([]byte(err.Error()))
+		return
+	}
+	_, err := d.Persist.Create("/disco/links/"+l.Id, l.Marshal(), false)
+	if err != nil {
+		d.Reply([]byte(err.Error()))
+		return
+	}
+	d.Reply([]byte("success"))
+}
+
 func getName(path string) string {
 	pathArr := strings.Split(path, "/")
 	return pathArr[len(pathArr)-1]

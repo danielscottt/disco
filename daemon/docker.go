@@ -37,7 +37,7 @@ func (d *DiscoAPI) collectDockerContainers() {
 
 func (d *DiscoAPI) createDockerContainer(p string, payload []byte) {
 	var con disco.Container
-	err := json.Unmarshal(&c)
+	err := json.Unmarshal(&con)
 	if err != nil {
 		d.Reply([]byte(err.Error()))
 		return

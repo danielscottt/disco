@@ -37,6 +37,10 @@ func listContainers() {
 }
 
 func linkContainers() {
+	// make links
+	// create containers
+	// wait for discovery
+	// write links to /links, containers
 	links := make([]*disco.Link, 0)
 	switch val := link.Options["targets"].Value.(type) {
 	case string:
@@ -45,6 +49,7 @@ func linkContainers() {
 			fmt.Println(err.Error())
 			return
 		}
+		fmt.Printf("\rcreating link " + link.Name + " [" + link.Id + "]")
 		links = append(links, link)
 	case []string:
 		for _, v := range val {
@@ -53,10 +58,12 @@ func linkContainers() {
 				fmt.Println(err.Error())
 				return
 			}
+			fmt.Printf("\rcreating link [" + link.Id + "]")
 			links = append(links, link)
 		}
-
 	}
+	fmt.Printf("\rstarting container [" + source.Name + "]")
+	s := disco.CreateDockerContainer(source)
 	commando.PrintFields(false, 0, "SOURCE", "TARGET", "LINK ID")
 	for _, link := range links {
 		commando.PrintFields(false, 0, link.Source.Name, link.Target, link.Id)

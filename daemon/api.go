@@ -117,6 +117,8 @@ func (d *DiscoAPI) routeRequest(path, payload []byte) {
 	createDocker := regexp.MustCompile("/disco/api/docker/create")
 
 	switch {
+	case p == "/disco/link":
+		d.createLink(payload)
 	case p == "/disco/local/node_id":
 		d.Reply([]byte(d.NodeId))
 	case p == "/disco/api/get_containers":
