@@ -92,7 +92,7 @@ func (d *DiscoAPI) handleSocketRequest() {
 
 	defer d.connection.Close()
 
-	buf := make([]byte, 1024)
+	buf := make([]byte, 2048)
 	e, err := d.connection.Read(buf)
 	if err != nil {
 		return

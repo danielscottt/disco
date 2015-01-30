@@ -86,15 +86,13 @@ func linkContainers() {
 			os.Exit(1)
 		}
 	}
-	time.Sleep(time.Second * 3)
 	fmt.Println("")
 	for _, link := range links {
-		fmt.Printf("\r\033[Kupdating %s", link.Source.Name)
+		fmt.Println("updating", link.Source.Name)
 		disco.RegisterContainer(link.Source)
-		fmt.Printf("\r\033[Kupdating %s", link.Target.Name)
+		fmt.Println("updating", link.Target.Name)
 		disco.RegisterContainer(link.Target)
 	}
-	fmt.Println("")
 	fmt.Println("done.")
 	fmt.Println("Results:")
 	commando.PrintFields(true, 2, "SOURCE", "TARGET", "LINK ID")

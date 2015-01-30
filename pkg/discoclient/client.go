@@ -25,7 +25,7 @@ func (c *Client) do(payload string) ([]byte, error) {
 	if err != nil {
 		return buff, err
 	}
-	buff = make([]byte, 1024)
+	buff = make([]byte, 2048)
 	size, err := conn.Read(buff[:])
 	if err != nil {
 		return buff, err

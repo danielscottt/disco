@@ -8,8 +8,8 @@ import (
 	"github.com/danielscottt/disco/pkg/disco"
 )
 
-func (c *Client) CollectDockerContainers() ([]disco.Container, error) {
-	var cons []disco.Container
+func (c *Client) CollectDockerContainers() ([]*disco.Container, error) {
+	var cons []*disco.Container
 	reply, err := c.do("/disco/api/docker/collect")
 	if err != nil {
 		return cons, err

@@ -63,8 +63,8 @@ func (c *Client) GetContainer(name string) (*disco.Container, error) {
 	return &con, nil
 }
 
-func (c *Client) GetContainers() ([]disco.Container, error) {
-	var cons []disco.Container
+func (c *Client) GetContainers() ([]*disco.Container, error) {
+	var cons []*disco.Container
 	reply, err := c.do("/disco/api/get_containers")
 	if err != nil {
 		return cons, err

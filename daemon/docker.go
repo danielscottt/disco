@@ -18,13 +18,13 @@ func (d *DiscoAPI) collectDockerContainers() {
 		wg.Add(1)
 		// parallelize container data collection
 		go func(index int, dc docker.APIContainers) {
+			defer wg.Done()
 			c := &disco.Container{
 				HostNode: node.Id,
-				Name:     dcont.Names[0][1:],
-				Id:       dcont.ID,
-				Image:    dcont.Image,
+				Name:     dc.Names[0][1:],
+				Id:       dc.ID,
+				Image:    dc.Image,
 			}
-			defer wg.Done()
 			inspect, err := d.docker.InspectContainer(c.Id)
 			if err != nil {
 				log.Printf("error inspecting container " + c.Name)
@@ -32,14 +32,16 @@ func (d *DiscoAPI) collectDockerContainers() {
 			}
 			c.Env = inspect.Config.Env
 			c.IPAddress = inspect.NetworkSettings.IPAddress
-			c.Ports = make([]disco.Port, len(dcont.Ports))
-			for i, p := range dcont.Ports {
-				c.Ports[i] = disco.Port{
-					Private: int(p.PrivatePort),
-					Public:  int(p.PublicPort),
+			if len(dc.Ports) > 0 {
+				c.Ports = make([]disco.Port, len(dc.Ports))
+				for j, p := range dcont.Ports {
+					c.Ports[j] = disco.Port{
+						Private: int(p.PrivatePort),
+						Public:  int(p.PublicPort),
+					}
 				}
 			}
-			cs[i] = c
+			cs[index] = c
 		}(i, dcont)
 	}
 	wg.Wait()
