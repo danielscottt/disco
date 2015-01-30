@@ -41,18 +41,9 @@ func (d *DiscoAPI) getContainer(p string) {
 
 func (d *DiscoAPI) addContainer(p string, payload []byte) {
 	name := getName(p)
-	exists, err := d.Persist.Exists(PREFIX + "/containers/master/" + name)
-	if err != nil {
-		d.Reply([]byte(err.Error()))
-		return
-	}
-	if !exists {
-		d.Persist.Create(PREFIX+"/containers/nodes/"+d.NodeId+"/"+name, string(payload), true)
-		d.Persist.Create(PREFIX+"/containers/master/"+name, string(payload), true)
-		d.Reply([]byte("success"))
-	} else {
-		d.Reply([]byte("container exists"))
-	}
+	d.Persist.Create(PREFIX+"/containers/nodes/"+d.NodeId+"/"+name, string(payload), true)
+	d.Persist.Create(PREFIX+"/containers/master/"+name, string(payload), true)
+	d.Reply([]byte("success"))
 }
 
 func (d *DiscoAPI) removeContainer(p string) {
