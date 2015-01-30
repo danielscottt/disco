@@ -1,5 +1,13 @@
 package discoclient
 
+import (
+	"encoding/json"
+	"errors"
+	"strings"
+
+	"github.com/danielscottt/disco/pkg/disco"
+)
+
 func (c *Client) CollectDockerContainers() ([]disco.Container, error) {
 	var cons []disco.Container
 	reply, err := c.do("/disco/api/docker/collect")
@@ -12,18 +20,18 @@ func (c *Client) CollectDockerContainers() ([]disco.Container, error) {
 	return cons, nil
 }
 
-func (c *Client) CreateDockerContainer(c *Container) (*Container, error) {
-	var updated Container
-	cj, err := c.Marshal()
-	reply, err := c.do("/disco/api/docker/create/" + c.Name)
+func (c *Client) CreateDockerContainer(con *disco.Container) (*disco.Container, error) {
+	var updated disco.Container
+	cj, err := con.Marshal()
+	reply, err := c.do("/disco/api/docker/create/" + con.Name + "\n" + string(cj))
 	if err != nil {
 		return &updated, err
 	}
 	replySplit := strings.Split(string(reply), "\n")
-	if string(replySplit[0]) != "success" {
+	if replySplit[0] != "success" {
 		return &updated, errors.New(string(reply))
 	}
-	err := json.Unmarshal(&updated)
+	err = json.Unmarshal([]byte(replySplit[1]), &updated)
 	if err != nil {
 		return &updated, err
 	}

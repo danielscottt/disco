@@ -1,5 +1,25 @@
 package discoclient
 
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/danielscottt/disco/pkg/disco"
+)
+
+func (c *Client) ContainerExists(name string) (bool, error) {
+	reply, err := c.do(fmt.Sprintf("/disco/api/get_container/%s", name))
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(reply), "100: Key not found") {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (c *Client) RegisterContainer(con *disco.Container) error {
 
 	cJson, err := con.Marshal()

@@ -47,6 +47,9 @@ func NewDiscoAPI(config *ApiConfig) (*DiscoAPI, error) {
 		Persist:  config.Persist,
 	}
 	d.docker, err = docker.NewClient(config.DockerUri)
+	if err != nil {
+		return nil, err
+	}
 	d.stop = make(chan bool, 1)
 
 	return d, nil

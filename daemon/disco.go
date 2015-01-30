@@ -1,6 +1,11 @@
 package main
 
-import "strings"
+import (
+	"encoding/json"
+	"strings"
+
+	"github.com/danielscottt/disco/pkg/disco"
+)
 
 func (d *DiscoAPI) getContainers() {
 	response := []byte{'['}
@@ -26,7 +31,7 @@ func (d *DiscoAPI) getContainers() {
 
 func (d *DiscoAPI) getContainer(p string) {
 	name := getName(p)
-	data, err := d.scanContainer(PREFIX + "/containers/" + name)
+	data, err := d.scanContainer(PREFIX + "/containers/nodes/" + d.NodeId + "/" + name)
 	if err != nil {
 		d.Reply([]byte(err.Error()))
 		return
@@ -86,7 +91,7 @@ func (d *DiscoAPI) createLink(payload []byte) {
 		d.Reply([]byte(err.Error()))
 		return
 	}
-	_, err := d.Persist.Create("/disco/links/"+l.Id, l.Marshal(), false)
+	_, err = d.Persist.Create("/disco/links/"+l.Id, string(payload), false)
 	if err != nil {
 		d.Reply([]byte(err.Error()))
 		return

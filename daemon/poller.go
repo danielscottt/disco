@@ -29,6 +29,9 @@ func poll() {
 }
 
 func updateContainer(fromDocker, fromDisco *disco.Container) {
+	if fromDisco.HasLinks() {
+		fromDocker.Links = fromDisco.Links
+	}
 	dockerHash, err := fromDocker.Hash()
 	discoHash, err := fromDisco.Hash()
 	if err != nil {

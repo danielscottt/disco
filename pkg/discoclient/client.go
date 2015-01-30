@@ -1,13 +1,6 @@
 package discoclient
 
-import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net"
-
-	"github.com/danielscottt/disco/pkg/disco"
-)
+import "net"
 
 type Client struct {
 	Path string

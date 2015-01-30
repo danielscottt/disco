@@ -39,7 +39,9 @@ func getInterfaces() map[string]string {
 	ints, _ := net.Interfaces()
 	intMap := make(map[string]string)
 	for i, a := range ints {
-		if match, _ := regexp.MatchString("veth", a.Name); !match {
+		match1, _ := regexp.MatchString("veth", a.Name)
+		match2, _ := regexp.MatchString("docker", a.Name)
+		if !match1 && !match2 {
 			intMap[a.Name] = addrsStrings[i]
 		}
 	}
