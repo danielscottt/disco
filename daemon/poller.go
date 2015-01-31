@@ -29,6 +29,9 @@ func poll() {
 }
 
 func updateContainer(fromDocker, fromDisco *disco.Container) {
+	if fromDisco.HasLinks() {
+		fromDocker.Links = fromDisco.Links
+	}
 	dockerHash, err := fromDocker.Hash()
 	discoHash, err := fromDisco.Hash()
 	if err != nil {
@@ -76,9 +79,9 @@ func collectDockerContainers() (*map[string]*disco.Container, error) {
 	return &cMap, nil
 }
 
-func mapContainers(mapPointer *map[string]*disco.Container, cs []disco.Container) {
+func mapContainers(mapPointer *map[string]*disco.Container, cs []*disco.Container) {
 	for _, c := range cs {
-		(*mapPointer)[c.Name] = &c
+		(*mapPointer)[c.Name] = c
 	}
 }
 

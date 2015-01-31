@@ -8,11 +8,14 @@ import (
 	"regexp"
 
 	"github.com/fsouza/go-dockerclient"
+
+	p "github.com/danielscottt/disco/pkg/persist"
 )
 
 type DiscoAPI struct {
 	NodeId   string
 	DataPath string
+	Persist  p.Controller
 
 	docker     *docker.Client
 	listener   net.Listener
@@ -23,6 +26,7 @@ type DiscoAPI struct {
 type ApiConfig struct {
 	Id        string
 	DockerUri string
+	Persist   p.Controller
 }
 
 func NewDiscoAPI(config *ApiConfig) (*DiscoAPI, error) {
@@ -40,8 +44,12 @@ func NewDiscoAPI(config *ApiConfig) (*DiscoAPI, error) {
 		listener: l,
 		NodeId:   config.Id,
 		DataPath: PREFIX,
+		Persist:  config.Persist,
 	}
 	d.docker, err = docker.NewClient(config.DockerUri)
+	if err != nil {
+		return nil, err
+	}
 	d.stop = make(chan bool, 1)
 
 	return d, nil
@@ -72,13 +80,19 @@ func (d *DiscoAPI) Stop() {
 		d.connection.Close()
 	}
 	d.listener.Close()
+	d.Persist.Delete(PREFIX+"/nodes/"+node.Id, false)
+	resp, _ := d.Persist.Read(PREFIX + "/containers/nodes/" + node.Id)
+	for _, c := range resp.Children {
+		d.clearOutContainer(c)
+	}
+	d.Persist.Delete(PREFIX+"/containers/nodes/"+node.Id, true)
 }
 
 func (d *DiscoAPI) handleSocketRequest() {
 
 	defer d.connection.Close()
 
-	buf := make([]byte, 1024)
+	buf := make([]byte, 2048)
 	e, err := d.connection.Read(buf)
 	if err != nil {
 		return
@@ -103,14 +117,19 @@ func (d *DiscoAPI) routeRequest(path, payload []byte) {
 	getCont := regexp.MustCompile("/disco/api/get_container")
 	rmCont := regexp.MustCompile("/disco/api/remove_container")
 	addCont := regexp.MustCompile("/disco/api/add_container")
+	createDocker := regexp.MustCompile("/disco/api/docker/create")
 
 	switch {
+	case p == "/disco/link":
+		d.createLink(payload)
 	case p == "/disco/local/node_id":
 		d.Reply([]byte(d.NodeId))
 	case p == "/disco/api/get_containers":
 		d.getContainers()
 	case p == "/disco/api/docker/collect":
 		d.collectDockerContainers()
+	case createDocker.MatchString(p):
+		d.createDockerContainer(p, payload)
 	case addCont.MatchString(p):
 		d.addContainer(p, payload)
 	case rmCont.MatchString(p):

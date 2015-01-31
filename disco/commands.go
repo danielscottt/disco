@@ -1,12 +1,16 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/danielscottt/commando"
-	dockerclient "github.com/fsouza/go-dockerclient"
+
+	d "github.com/danielscottt/disco/pkg/disco"
 )
 
 var nodeId, list, link *commando.Command
@@ -29,7 +33,7 @@ func listContainers() {
 	for _, con := range cons {
 		var portMap []string
 		for _, p := range con.Ports {
-			portMap = append(portMap, fmt.Sprintf("%d:%d", p.PrivatePort, p.PublicPort))
+			portMap = append(portMap, fmt.Sprintf("%d:%d", p.Private, p.Public))
 		}
 		portString := strings.Join(portMap, ", ")
 		commando.PrintFields(false, 0, con.Name, con.HostNode, con.Id[:12], portString, "soon...")
@@ -37,72 +41,100 @@ func listContainers() {
 }
 
 func linkContainers() {
+	links := make([]*d.Link, 0)
 	switch val := link.Options["targets"].Value.(type) {
 	case string:
-		name, container, port := parseTarget(val)
-		target, err := disco.GetContainer(container)
+		link, err := linkContainer(val)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("Linking error: " + err.Error())
 			return
 		}
-		id, err := disco.GetNodeId()
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		if id != target.HostNode {
-			// handle disparate node
-		} else {
-			inspectTarget, err := docker.InspectContainer(target.Id)
-			if err != nil {
-				fmt.Println(err.Error())
-				return
-			}
-			create := dockerclient.CreateContainerOptions{
-				Name: link.Options["name"].Value.(string),
-			}
-			env := []string{}
-			for _, p := range target.Ports {
-				if p.PrivatePort == port {
-					env = append(env, name+"_PORT="+fmt.Sprintf("%d", p.PrivatePort))
-					env = append(env, name+"_HOST="+inspectTarget.NetworkSettings.IPAddress)
-				}
-			}
-			config := &dockerclient.Config{
-				Image:           link.Options["image"].Value.(string),
-				Env:             env,
-				NetworkDisabled: false,
-				AttachStdin:     false,
-				AttachStdout:    false,
-				AttachStderr:    false,
-			}
-			create.Config = config
-			c, err := docker.CreateContainer(create)
-			if err != nil {
-				fmt.Println(err.Error())
-				return
-			}
-			hc := &dockerclient.HostConfig{
-				NetworkMode:     "bridge",
-				PublishAllPorts: true,
-			}
-			hc.LxcConf = make([]dockerclient.KeyValuePair, 0)
-			hc.PortBindings = make(map[dockerclient.Port][]dockerclient.PortBinding)
-			err = docker.StartContainer(c.ID, hc)
-			if err != nil {
-				fmt.Println(err.Error())
-				return
-			}
-			fmt.Println(c.ID)
-		}
+		fmt.Printf("creating link " + link.Name + " [" + link.Id + "]\n")
+		links = append(links, link)
 	case []string:
+		for _, v := range val {
+			link, err := linkContainer(v)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+			fmt.Printf("creating link [" + link.Id + "]\n")
+			links = append(links, link)
+		}
+	}
+	// each link has the same source
+	source := links[0].Source
+	fmt.Printf("starting container [" + source.Name + "]\n")
+	_, err := disco.CreateDockerContainer(source)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	i := 0
+	var exists bool
+	for !exists {
+		fmt.Printf("\rwaiting for discovery%s", strings.Repeat(".", i))
+		time.Sleep(500 * time.Millisecond)
+		exists, err = disco.ContainerExists(source.Name)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+		i++
+		if i > 50 {
+			fmt.Println("Error: timeout waiting for discovery")
+			os.Exit(1)
+		}
+	}
+	fmt.Println("")
+	for _, link := range links {
+		fmt.Println("updating", link.Source.Name)
+		disco.RegisterContainer(link.Source)
+		fmt.Println("updating", link.Target.Name)
+		disco.RegisterContainer(link.Target)
+	}
+	fmt.Println("done.")
+	fmt.Println("Results:")
+	commando.PrintFields(true, 2, "SOURCE", "TARGET", "LINK ID")
+	for _, link := range links {
+		commando.PrintFields(true, 2, link.Source.Name, link.Target.Name, link.Id)
 	}
 }
 
-func parseTarget(input string) (string, string, int64) {
+func parseTarget(input string) (string, string, int) {
 	split := strings.Split(input, "=")
 	name := split[0]
 	container := strings.Split(split[1], ":")[0]
-	port, _ := strconv.ParseInt(strings.Split(split[1], ":")[1], 0, 0)
+	port, _ := strconv.Atoi(strings.Split(split[1], ":")[1])
 	return name, container, port
+}
+
+func linkContainer(v string) (*d.Link, error) {
+	var l *d.Link
+	name, container, port := parseTarget(v)
+	target, err := disco.GetContainer(container)
+	if err != nil {
+		return l, errors.New("error retrieving container: " + err.Error())
+	}
+	sourceName := link.Options["name"].Value.(string)
+	sourceImage := link.Options["image"].Value.(string)
+	source := makeContainer(sourceName, sourceImage)
+	for _, p := range target.Ports {
+		if p.Private == port {
+			source.Env = append(source.Env, name+"_PORT="+fmt.Sprintf("%d", p.Private))
+			source.Env = append(source.Env, name+"_HOST="+target.IPAddress)
+		}
+	}
+	l, err = disco.LinkContainers(name, source, target)
+	if err != nil {
+		return l, err
+	}
+	return l, nil
+}
+
+func makeContainer(name, image string) *d.Container {
+	return &d.Container{
+		Name:  name,
+		Image: image,
+	}
 }

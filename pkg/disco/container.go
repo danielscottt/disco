@@ -6,11 +6,14 @@ import (
 )
 
 type Container struct {
-	Name     string
-	HostNode string
-	Id       string
-	Links    []string
-	Ports    []Port
+	Name      string
+	HostNode  string
+	Id        string
+	Links     map[string][]string
+	Ports     []Port
+	IPAddress string
+	Env       []string
+	Image     string
 }
 
 type Port struct {
@@ -32,4 +35,11 @@ func (c *Container) Hash() ([md5.Size]byte, error) {
 		return [md5.Size]byte{}, err
 	}
 	return md5.Sum(cj), nil
+}
+
+func (c *Container) HasLinks() bool {
+	if c.Links == nil {
+		return false
+	}
+	return true
 }
