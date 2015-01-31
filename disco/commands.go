@@ -36,7 +36,7 @@ func listContainers() {
 			portMap = append(portMap, fmt.Sprintf("%d:%d", p.Private, p.Public))
 		}
 		portString := strings.Join(portMap, ", ")
-		commando.PrintFields(false, 0, con.Name, con.HostNode, con.Id[:12], portString, "soon...")
+		commando.PrintFields(false, 0, con.Name, con.HostNode, con.Id[:12], portString, getLinkString(con))
 	}
 }
 
@@ -137,4 +137,15 @@ func makeContainer(name, image string) *d.Container {
 		Name:  name,
 		Image: image,
 	}
+}
+
+func getLinkString(con *d.Container) string {
+	var sString, tString string
+	if _, ok := con.Links["source"]; ok {
+		sString = strings.Join(con.Links["source"], ", ")
+	}
+	if _, ok := con.Links["target"]; ok {
+		tString = strings.Join(con.Links["target"], ", ")
+	}
+	return fmt.Sprintf("source => [%s], target => [%s]", sString, tString)
 }
