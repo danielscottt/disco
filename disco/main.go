@@ -1,27 +1,15 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/danielscottt/commando"
+
 	"github.com/danielscottt/disco/pkg/discoclient"
-	dockerclient "github.com/fsouza/go-dockerclient"
 )
 
-var (
-	disco  *discoclient.Client
-	docker *dockerclient.Client
-)
+var disco *discoclient.Client
 
 func main() {
-	var err error
-
 	disco = discoclient.NewClient("/var/run/disco.sock")
-	docker, err = dockerclient.NewClient("unix:///var/run/docker.sock")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
 
 	root := &commando.Command{
 		Name:        "disco",
