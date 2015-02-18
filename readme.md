@@ -3,9 +3,9 @@ Disco
 
 _A Thing that links Docker containers together._
 
-* * *
-
 ![disco arch](https://dl.dropboxusercontent.com/u/42154947/blog%20pics/disco.png)
+
+* * *
 
 Disco is an experiment in service discovery, cross-host connectivity, and eventually scheduling.  Strictly, and officially, just an experiment.
 
